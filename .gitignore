@@ -1,0 +1,4 @@
+log/
+logs_lgn/
+slurm-trainer/
+checkpoints/

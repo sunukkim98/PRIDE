@@ -41,6 +41,6 @@ def get_VQ_config(org_config):
         "num_codebook": org_config["num_codebook"],
         "num_hirearchy": org_config["num_hirearchy"],
         "codebook_dimension": org_config["out_dim"],
-        "begin_adv": 10
+        "begin_adv": org_config["begin_adv"]
         }
     return config

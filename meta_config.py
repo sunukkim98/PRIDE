@@ -46,6 +46,7 @@ parser.add_argument('--item_num', type=int, default=5, help='max epoch')
 
 parser.add_argument('--num_codebook', type=int, default=128, help='size of codebook')
 parser.add_argument('--num_hirearchy', type=int, default=3, help='number of codebook')
+parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id

@@ -1,0 +1,129 @@
+{'seed': 2027, 'model': 'MF', 'dataset': 'MIND', 'min_interaction': 10, 'noise': 0.0, 'add_p': 1.0, 'out_dim': 64, 'use_gpu': True, 'device': device(type='cuda'), 'device_id': [0], 'batch_size': 2048, 'test_batch_size': 2048, 'patience': 100, 'val_interval': 20, 'lr': 0.001, 'weight_decay': 0.1, 'min_epochs': 40, 'n_epochs': 100, 'rec_top_k': [20, 50], 'method': 'VQ', 'temp': 0.1, 'item_num': 5, 'num_codebook': 256, 'num_hirearchy': 3, 'begin_adv': 10, 'main_file': '2025041713_0.001_0.1_10_256', 'model_config': {'device': device(type='cuda'), 'dim': 64, 'denoise_config': {'num_codebook': 256, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10}, 'n_users': 38441, 'n_items': 38000}, 'checkpoints': 'checkpoints'}
+MF
+{'device': device(type='cuda'), 'dim': 64, 'denoise_config': {'num_codebook': 256, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10}}
+#User: 38441, #Item: 38000, #Ratings: 1210953, AvgLen: 31.5, Sparsity: 99.92
+Create Dataloader with batch_size:2048
+Epoch 0: Rec Loss: 0.8177, Time: 6.75
+Epoch 1: Rec Loss: 0.7474, Time: 6.75
+Epoch 2: Rec Loss: 0.7173, Time: 6.75
+Epoch 3: Rec Loss: 0.6927, Time: 6.67
+Epoch 4: Rec Loss: 0.6199, Time: 6.67
+Epoch 5: Rec Loss: 0.5492, Time: 6.73
+Epoch 6: Rec Loss: 0.5327, Time: 6.74
+Epoch 7: Rec Loss: 0.5302, Time: 6.74
+Epoch 8: Rec Loss: 0.5301, Time: 6.71
+Epoch 9: Rec Loss: 0.5296, Time: 6.68
+Epoch 10: Rec Loss: 0.4138, Time: 10.11
+Epoch 11: Rec Loss: 0.3895, Time: 10.02
+Epoch 12: Rec Loss: 0.3747, Time: 10.03
+Epoch 13: Rec Loss: 0.3598, Time: 10.11
+Epoch 14: Rec Loss: 0.3501, Time: 10.20
+Epoch 15: Rec Loss: 0.3395, Time: 10.20
+Epoch 16: Rec Loss: 0.3298, Time: 10.22
+Epoch 17: Rec Loss: 0.3227, Time: 10.21
+Epoch 18: Rec Loss: 0.3229, Time: 10.20
+Epoch 19: Rec Loss: 0.3268, Time: 10.21
+Validation - Time: 153.20
+Recommendation Performanceat Epoch 19:
+Recall@20: 0.0417, NDCG@20: 0.0216;
+Recall@50: 0.0867, NDCG@50: 0.0343;
+Epoch 20: Rec Loss: 0.3219, Time: 10.20
+Epoch 21: Rec Loss: 0.3164, Time: 10.20
+Epoch 22: Rec Loss: 0.3152, Time: 10.20
+Epoch 23: Rec Loss: 0.3183, Time: 10.21
+Epoch 24: Rec Loss: 0.3189, Time: 10.22
+Epoch 25: Rec Loss: 0.3187, Time: 10.20
+Epoch 26: Rec Loss: 0.3170, Time: 10.21
+Epoch 27: Rec Loss: 0.3144, Time: 10.19
+Epoch 28: Rec Loss: 0.3089, Time: 10.19
+Epoch 29: Rec Loss: 0.3047, Time: 10.09
+Epoch 30: Rec Loss: 0.3052, Time: 10.10
+Epoch 31: Rec Loss: 0.3064, Time: 10.06
+Epoch 32: Rec Loss: 0.3104, Time: 10.00
+Epoch 33: Rec Loss: 0.3194, Time: 10.02
+Epoch 34: Rec Loss: 0.3234, Time: 10.06
+Epoch 35: Rec Loss: 0.3264, Time: 10.08
+Epoch 36: Rec Loss: 0.3303, Time: 10.10
+Epoch 37: Rec Loss: 0.3331, Time: 10.12
+Epoch 38: Rec Loss: 0.3365, Time: 10.12
+Epoch 39: Rec Loss: 0.3374, Time: 10.13
+Validation - Time: 153.34
+Recommendation Performanceat Epoch 39:
+Recall@20: 0.0411, NDCG@20: 0.0212;
+Recall@50: 0.1006, NDCG@50: 0.0385;
+Epoch 40: Rec Loss: 0.3351, Time: 10.21
+Epoch 41: Rec Loss: 0.3305, Time: 10.20
+Epoch 42: Rec Loss: 0.3301, Time: 10.19
+Epoch 43: Rec Loss: 0.3368, Time: 10.14
+Epoch 44: Rec Loss: 0.3521, Time: 10.13
+Epoch 45: Rec Loss: 0.3648, Time: 10.14
+Epoch 46: Rec Loss: 0.3758, Time: 10.16
+Epoch 47: Rec Loss: 0.3813, Time: 10.16
+Epoch 48: Rec Loss: 0.3765, Time: 10.15
+Epoch 49: Rec Loss: 0.3638, Time: 10.15
+Epoch 50: Rec Loss: 0.3533, Time: 10.15
+Epoch 51: Rec Loss: 0.3475, Time: 10.17
+Epoch 52: Rec Loss: 0.3428, Time: 10.20
+Epoch 53: Rec Loss: 0.3380, Time: 10.15
+Epoch 54: Rec Loss: 0.3400, Time: 10.15
+Epoch 55: Rec Loss: 0.3419, Time: 10.15
+Epoch 56: Rec Loss: 0.3456, Time: 10.18
+Epoch 57: Rec Loss: 0.3538, Time: 10.15
+Epoch 58: Rec Loss: 0.3541, Time: 10.14
+Epoch 59: Rec Loss: 0.3581, Time: 10.21
+Validation - Time: 153.15
+Recommendation Performanceat Epoch 59:
+Recall@20: 0.0005, NDCG@20: 0.0003;
+Recall@50: 0.0013, NDCG@50: 0.0005;
+Epoch 60: Rec Loss: 0.3571, Time: 9.99
+Epoch 61: Rec Loss: 0.3598, Time: 10.00
+Epoch 62: Rec Loss: 0.3613, Time: 10.02
+Epoch 63: Rec Loss: 0.3604, Time: 9.99
+Epoch 64: Rec Loss: 0.3614, Time: 9.98
+Epoch 65: Rec Loss: 0.3553, Time: 9.97
+Epoch 66: Rec Loss: 0.3562, Time: 10.07
+Epoch 67: Rec Loss: 0.3581, Time: 9.99
+Epoch 68: Rec Loss: 0.3596, Time: 9.98
+Epoch 69: Rec Loss: 0.3541, Time: 10.01
+Epoch 70: Rec Loss: 0.3585, Time: 9.97
+Epoch 71: Rec Loss: 0.3564, Time: 9.99
+Epoch 72: Rec Loss: 0.3643, Time: 9.98
+Epoch 73: Rec Loss: 0.3690, Time: 9.97
+Epoch 74: Rec Loss: 0.3669, Time: 9.99
+Epoch 75: Rec Loss: 0.3641, Time: 10.06
+Epoch 76: Rec Loss: 0.3651, Time: 10.02
+Epoch 77: Rec Loss: 0.3700, Time: 9.98
+Epoch 78: Rec Loss: 0.3650, Time: 9.98
+Epoch 79: Rec Loss: 0.3621, Time: 9.98
+Validation - Time: 153.43
+Recommendation Performanceat Epoch 79:
+Recall@20: 0.0080, NDCG@20: 0.0041;
+Recall@50: 0.0191, NDCG@50: 0.0073;
+Epoch 80: Rec Loss: 0.3620, Time: 10.13
+Epoch 81: Rec Loss: 0.3626, Time: 10.12
+Epoch 82: Rec Loss: 0.3665, Time: 10.12
+Epoch 83: Rec Loss: 0.3623, Time: 10.10
+Epoch 84: Rec Loss: 0.3605, Time: 10.15
+Epoch 85: Rec Loss: 0.3660, Time: 10.18
+Epoch 86: Rec Loss: 0.3603, Time: 10.06
+Epoch 87: Rec Loss: 0.3581, Time: 10.01
+Epoch 88: Rec Loss: 0.3614, Time: 10.01
+Epoch 89: Rec Loss: 0.3571, Time: 9.98
+Epoch 90: Rec Loss: 0.3669, Time: 9.97
+Epoch 91: Rec Loss: 0.3802, Time: 9.98
+Epoch 92: Rec Loss: 0.3641, Time: 9.98
+Epoch 93: Rec Loss: 0.3562, Time: 9.97
+Epoch 94: Rec Loss: 0.3576, Time: 9.97
+Epoch 95: Rec Loss: 0.3617, Time: 10.02
+Epoch 96: Rec Loss: 0.3604, Time: 10.02
+Epoch 97: Rec Loss: 0.3667, Time: 10.03
+Epoch 98: Rec Loss: 0.3618, Time: 10.05
+Epoch 99: Rec Loss: 0.3656, Time: 10.02
+Validation - Time: 153.25
+Recommendation Performanceat Epoch 99:
+Recall@20: 0.0030, NDCG@20: 0.0015;
+Recall@50: 0.0069, NDCG@50: 0.0027;
+Test - Time: 223.28
+Recommendation Performance:
+Recall@20: 0.0417, NDCG@20: 0.0239;
+Recall@50: 0.1004, NDCG@50: 0.0430;

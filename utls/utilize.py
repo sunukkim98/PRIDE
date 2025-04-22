@@ -27,15 +27,15 @@ def init_run(log_path, args, seed=None):
     if not os.path.exists(log_path):
         os.makedirs(log_path, exist_ok=True)
 
-    f = open(os.path.join(log_path, f"log_{args.noise}_{seed}.txt"), 'w')
-    f = Unbuffered(f)
+    #f = open(os.path.join(log_path, f"log_{args.noise}_{seed}.txt"), 'w')
+    #f = Unbuffered(f)
 
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-    outfile = os.path.join(log_path, f"log_{args.noise}_{seed}.txt")
+    #original_stdout = sys.stdout
+    #original_stderr = sys.stderr
+    #outfile = os.path.join(log_path, f"log_{args.noise}_{seed}.txt")
 
-    sys.stderr = f
-    sys.stdout = f
+    #sys.stderr = f
+    #sys.stdout = f
 
 def restore_stdout_stderr():
     global original_stdout, original_stderr, outfile

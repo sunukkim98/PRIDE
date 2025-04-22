@@ -1,0 +1,37 @@
+{'seed': 2024, 'model': 'MF', 'dataset': 'MIND', 'min_interaction': 10, 'noise': 0.0, 'add_p': 1.0, 'out_dim': 64, 'use_gpu': True, 'device': device(type='cuda'), 'device_id': [0], 'batch_size': 2048, 'test_batch_size': 2048, 'patience': 100, 'val_interval': 20, 'lr': 0.001, 'weight_decay': 0.0001, 'min_epochs': 40, 'n_epochs': 100, 'rec_top_k': [20, 50], 'method': 'VQ', 'temp': 0.1, 'item_num': 5, 'num_codebook': 128, 'num_hirearchy': 3, 'begin_adv': 10, 'ema': 0.8, 'main_file': '2025042011_0.001_0.0001_10_0.8_128'}
+MF
+{'device': device(type='cuda'), 'dim': 64, 'denoise_config': {'num_codebook': 128, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10, 'ema': 0.8}}
+#User: 38441, #Item: 38000, #Ratings: 1210953, AvgLen: 31.5, Sparsity: 99.92
+Create Dataloader with batch_size:2048
+Epoch 0: Rec Loss: 0.6850, Time: 6.53
+Epoch 1: Rec Loss: 0.6585, Time: 6.39
+Epoch 2: Rec Loss: 0.6034, Time: 6.41
+Epoch 3: Rec Loss: 0.4733, Time: 6.57
+Epoch 4: Rec Loss: 0.3114, Time: 6.57
+Epoch 5: Rec Loss: 0.2113, Time: 6.79
+Epoch 6: Rec Loss: 0.1627, Time: 6.62
+Epoch 7: Rec Loss: 0.1377, Time: 6.64
+Epoch 8: Rec Loss: 0.1221, Time: 6.80
+Epoch 9: Rec Loss: 0.1111, Time: 6.58
+Epoch 10: Rec Loss: 0.0589, Time: 10.52
+Epoch 11: Rec Loss: 0.0556, Time: 10.72
+Epoch 12: Rec Loss: 0.0544, Time: 10.57
+Epoch 13: Rec Loss: 0.0539, Time: 10.62
+Epoch 14: Rec Loss: 0.0528, Time: 10.63
+Epoch 15: Rec Loss: 0.0519, Time: 10.60
+Epoch 16: Rec Loss: 0.0485, Time: 10.66
+Epoch 17: Rec Loss: 0.0462, Time: 10.57
+Epoch 18: Rec Loss: 0.0438, Time: 10.60
+Epoch 19: Rec Loss: 0.0412, Time: 10.47
+Traceback (most recent call last):
+  File "/home/minseo/vq2/PLD/main.py", line 34, in <module>
+    main(seed=2024+t, main_file=main_file)
+  File "/home/minseo/vq2/PLD/main.py", line 24, in main
+    trainer.train()
+  File "/home/minseo/vq2/PLD/utls/trainer.py", line 73, in train
+    metrics_list, _ = self._eval_model(epoch)
+                      ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/minseo/vq2/PLD/utls/trainer.py", line 183, in _eval_model
+    dcg = sum([1 / np.log2(i + 2) for i, item in enumerate(top_indices_k) if item in user_inter_items])
+                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

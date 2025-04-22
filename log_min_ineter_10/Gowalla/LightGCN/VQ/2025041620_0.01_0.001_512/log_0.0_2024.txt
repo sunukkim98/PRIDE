@@ -1,0 +1,131 @@
+{'seed': 2024, 'model': 'LightGCN', 'dataset': 'Gowalla', 'min_interaction': 10, 'noise': 0.0, 'add_p': 1.0, 'out_dim': 64, 'use_gpu': True, 'device': device(type='cuda'), 'device_id': [0], 'batch_size': 2048, 'test_batch_size': 2048, 'patience': 100, 'val_interval': 20, 'lr': 0.01, 'weight_decay': 0.001, 'min_epochs': 40, 'n_epochs': 100, 'rec_top_k': [20, 50], 'method': 'VQ', 'temp': 0.1, 'item_num': 5, 'num_codebook': 512, 'num_hirearchy': 3, 'main_file': '2025041620_0.01_0.001_512'}
+LightGCN
+{'device': device(type='cuda'), 'dim': 64, 'n_layers': 4, 'denoise_config': {'num_codebook': 512, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10}}
+#User: 29857, #Item: 40981, #Ratings: 1027361, AvgLen: 34.4, Sparsity: 99.92
+Create Dataloader with batch_size:2048
+/home/minseo/vq2/PLD/utls/mydataset.py:196: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /opt/conda/conda-bld/pytorch_1708025845206/work/torch/csrc/utils/tensor_new.cpp:618.)
+  Graph = torch.sparse.IntTensor(index, data, torch.Size([self.n_users+self.n_items, self.n_users+self.n_items]))
+Epoch 0: Rec Loss: 0.1886, Time: 8.71
+Epoch 1: Rec Loss: 0.1069, Time: 8.51
+Epoch 2: Rec Loss: 0.0987, Time: 8.52
+Epoch 3: Rec Loss: 0.0949, Time: 8.53
+Epoch 4: Rec Loss: 0.0923, Time: 8.52
+Epoch 5: Rec Loss: 0.0913, Time: 8.50
+Epoch 6: Rec Loss: 0.0902, Time: 8.50
+Epoch 7: Rec Loss: 0.0891, Time: 8.53
+Epoch 8: Rec Loss: 0.0889, Time: 8.50
+Epoch 9: Rec Loss: 0.0885, Time: 8.56
+Epoch 10: Rec Loss: 0.0718, Time: 12.87
+Epoch 11: Rec Loss: 0.0710, Time: 12.90
+Epoch 12: Rec Loss: 0.0693, Time: 12.90
+Epoch 13: Rec Loss: 0.0695, Time: 12.90
+Epoch 14: Rec Loss: 0.0701, Time: 12.89
+Epoch 15: Rec Loss: 0.0690, Time: 12.89
+Epoch 16: Rec Loss: 0.0679, Time: 12.89
+Epoch 17: Rec Loss: 0.0684, Time: 12.89
+Epoch 18: Rec Loss: 0.0683, Time: 12.89
+Epoch 19: Rec Loss: 0.0694, Time: 12.89
+Validation - Time: 126.20
+Recommendation Performanceat Epoch 19:
+Recall@20: 0.1300, NDCG@20: 0.0855;
+Recall@50: 0.2151, NDCG@50: 0.1099;
+Epoch 20: Rec Loss: 0.0702, Time: 12.88
+Epoch 21: Rec Loss: 0.0706, Time: 12.86
+Epoch 22: Rec Loss: 0.0690, Time: 12.85
+Epoch 23: Rec Loss: 0.0703, Time: 12.85
+Epoch 24: Rec Loss: 0.0705, Time: 12.86
+Epoch 25: Rec Loss: 0.0706, Time: 12.88
+Epoch 26: Rec Loss: 0.0715, Time: 12.86
+Epoch 27: Rec Loss: 0.0716, Time: 12.86
+Epoch 28: Rec Loss: 0.0711, Time: 12.86
+Epoch 29: Rec Loss: 0.0707, Time: 12.86
+Epoch 30: Rec Loss: 0.0709, Time: 12.87
+Epoch 31: Rec Loss: 0.0711, Time: 12.85
+Epoch 32: Rec Loss: 0.0709, Time: 12.85
+Epoch 33: Rec Loss: 0.0709, Time: 12.84
+Epoch 34: Rec Loss: 0.0701, Time: 12.85
+Epoch 35: Rec Loss: 0.0710, Time: 12.85
+Epoch 36: Rec Loss: 0.0697, Time: 12.83
+Epoch 37: Rec Loss: 0.0703, Time: 12.86
+Epoch 38: Rec Loss: 0.0718, Time: 12.86
+Epoch 39: Rec Loss: 0.0681, Time: 12.86
+Validation - Time: 126.16
+Recommendation Performanceat Epoch 39:
+Recall@20: 0.1318, NDCG@20: 0.0863;
+Recall@50: 0.2164, NDCG@50: 0.1106;
+Epoch 40: Rec Loss: 0.0672, Time: 12.87
+Epoch 41: Rec Loss: 0.0640, Time: 12.86
+Epoch 42: Rec Loss: 0.0668, Time: 12.91
+Epoch 43: Rec Loss: 0.0686, Time: 12.88
+Epoch 44: Rec Loss: 0.0667, Time: 12.87
+Epoch 45: Rec Loss: 0.0677, Time: 12.86
+Epoch 46: Rec Loss: 0.0671, Time: 12.87
+Epoch 47: Rec Loss: 0.0678, Time: 12.88
+Epoch 48: Rec Loss: 0.0653, Time: 12.87
+Epoch 49: Rec Loss: 0.0686, Time: 12.88
+Epoch 50: Rec Loss: 0.0695, Time: 12.88
+Epoch 51: Rec Loss: 0.0665, Time: 12.86
+Epoch 52: Rec Loss: 0.0682, Time: 12.87
+Epoch 53: Rec Loss: 0.0649, Time: 12.86
+Epoch 54: Rec Loss: 0.0682, Time: 12.86
+Epoch 55: Rec Loss: 0.0664, Time: 12.86
+Epoch 56: Rec Loss: 0.0637, Time: 12.85
+Epoch 57: Rec Loss: 0.0627, Time: 12.87
+Epoch 58: Rec Loss: 0.0695, Time: 12.85
+Epoch 59: Rec Loss: 0.0708, Time: 12.85
+Validation - Time: 126.22
+Recommendation Performanceat Epoch 59:
+Recall@20: 0.1305, NDCG@20: 0.0857;
+Recall@50: 0.2149, NDCG@50: 0.1100;
+Epoch 60: Rec Loss: 0.0715, Time: 12.86
+Epoch 61: Rec Loss: 0.0698, Time: 13.01
+Epoch 62: Rec Loss: 0.0670, Time: 12.86
+Epoch 63: Rec Loss: 0.0644, Time: 12.85
+Epoch 64: Rec Loss: 0.0674, Time: 12.88
+Epoch 65: Rec Loss: 0.0683, Time: 12.87
+Epoch 66: Rec Loss: 0.0683, Time: 12.87
+Epoch 67: Rec Loss: 0.0728, Time: 12.87
+Epoch 68: Rec Loss: 0.0699, Time: 12.84
+Epoch 69: Rec Loss: 0.0684, Time: 12.87
+Epoch 70: Rec Loss: 0.0697, Time: 12.83
+Epoch 71: Rec Loss: 0.0705, Time: 12.85
+Epoch 72: Rec Loss: 0.0697, Time: 12.86
+Epoch 73: Rec Loss: 0.0714, Time: 12.84
+Epoch 74: Rec Loss: 0.0696, Time: 12.87
+Epoch 75: Rec Loss: 0.0698, Time: 12.84
+Epoch 76: Rec Loss: 0.0700, Time: 12.83
+Epoch 77: Rec Loss: 0.0695, Time: 12.84
+Epoch 78: Rec Loss: 0.0710, Time: 12.82
+Epoch 79: Rec Loss: 0.0708, Time: 12.84
+Validation - Time: 125.90
+Recommendation Performanceat Epoch 79:
+Recall@20: 0.1310, NDCG@20: 0.0864;
+Recall@50: 0.2161, NDCG@50: 0.1109;
+Epoch 80: Rec Loss: 0.0677, Time: 12.83
+Epoch 81: Rec Loss: 0.0667, Time: 12.84
+Epoch 82: Rec Loss: 0.0717, Time: 12.86
+Epoch 83: Rec Loss: 0.0715, Time: 12.86
+Epoch 84: Rec Loss: 0.0712, Time: 12.87
+Epoch 85: Rec Loss: 0.0694, Time: 12.85
+Epoch 86: Rec Loss: 0.0693, Time: 12.85
+Epoch 87: Rec Loss: 0.0713, Time: 12.85
+Epoch 88: Rec Loss: 0.0715, Time: 12.83
+Epoch 89: Rec Loss: 0.0714, Time: 12.84
+Epoch 90: Rec Loss: 0.0718, Time: 12.83
+Epoch 91: Rec Loss: 0.0718, Time: 12.86
+Epoch 92: Rec Loss: 0.0703, Time: 12.87
+Epoch 93: Rec Loss: 0.0713, Time: 12.85
+Epoch 94: Rec Loss: 0.0705, Time: 12.80
+Epoch 95: Rec Loss: 0.0705, Time: 12.83
+Epoch 96: Rec Loss: 0.0699, Time: 12.84
+Epoch 97: Rec Loss: 0.0713, Time: 12.85
+Epoch 98: Rec Loss: 0.0710, Time: 12.85
+Epoch 99: Rec Loss: 0.0720, Time: 12.85
+Validation - Time: 125.45
+Recommendation Performanceat Epoch 99:
+Recall@20: 0.1330, NDCG@20: 0.0873;
+Recall@50: 0.2193, NDCG@50: 0.1120;
+Test - Time: 186.96
+Recommendation Performance:
+Recall@20: 0.1363, NDCG@20: 0.1002;
+Recall@50: 0.2218, NDCG@50: 0.1278;

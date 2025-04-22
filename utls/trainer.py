@@ -283,6 +283,7 @@ class VQCFTrainer(CFTrainer):
                 dim = self.config['out_dim'],
                 codebook_size = self.config["model_config"]['denoise_config']['num_codebook'],
                 num_quantizers = self.config["model_config"]['denoise_config']['num_hirearchy'],
+                decay = self.config["model_config"]['denoise_config']['ema']
             ).to(self.config["device"])
         self.begin_adv = self.config["model_config"]['denoise_config']['begin_adv']
         self.user_interact_history = self.dataset.get_interaction_matrix(self.device)

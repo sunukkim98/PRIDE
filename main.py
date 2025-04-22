@@ -29,6 +29,6 @@ def main(seed=2024, main_file=""):
 if __name__ == '__main__':
     times = 5
     main_file = datetime.now().strftime('%Y%m%d%H')
-    main_file = f"{main_file}_{args.lr}_{args.weight_decay}_{args.begin_adv}_{args.num_codebook}"
+    main_file = f"{main_file}_{args.lr}_{args.weight_decay}_{args.begin_adv}_{args.ema}_{args.num_codebook}"
     for t in range(times):
         main(seed=2024+t, main_file=main_file)

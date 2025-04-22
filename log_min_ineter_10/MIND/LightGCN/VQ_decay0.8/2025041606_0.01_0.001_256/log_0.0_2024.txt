@@ -1,0 +1,131 @@
+{'seed': 2024, 'model': 'LightGCN', 'dataset': 'MIND', 'min_interaction': 10, 'noise': 0.0, 'add_p': 1.0, 'out_dim': 64, 'use_gpu': True, 'device': device(type='cuda'), 'device_id': [0], 'batch_size': 2048, 'test_batch_size': 2048, 'patience': 100, 'val_interval': 20, 'lr': 0.01, 'weight_decay': 0.001, 'min_epochs': 40, 'n_epochs': 100, 'rec_top_k': [20, 50], 'method': 'VQ', 'temp': 0.1, 'item_num': 5, 'num_codebook': 256, 'num_hirearchy': 3, 'main_file': '2025041606_0.01_0.001_256'}
+LightGCN
+{'device': device(type='cuda'), 'dim': 64, 'n_layers': 4, 'denoise_config': {'num_codebook': 256, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10}}
+#User: 38441, #Item: 38000, #Ratings: 1210953, AvgLen: 31.5, Sparsity: 99.92
+Create Dataloader with batch_size:2048
+/home/minseo/vq2/PLD/utls/mydataset.py:196: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /opt/conda/conda-bld/pytorch_1708025845206/work/torch/csrc/utils/tensor_new.cpp:618.)
+  Graph = torch.sparse.IntTensor(index, data, torch.Size([self.n_users+self.n_items, self.n_users+self.n_items]))
+Epoch 0: Rec Loss: 0.2202, Time: 10.71
+Epoch 1: Rec Loss: 0.1906, Time: 10.34
+Epoch 2: Rec Loss: 0.1749, Time: 12.76
+Epoch 3: Rec Loss: 0.1597, Time: 11.65
+Epoch 4: Rec Loss: 0.1505, Time: 10.45
+Epoch 5: Rec Loss: 0.1440, Time: 10.48
+Epoch 6: Rec Loss: 0.1392, Time: 10.45
+Epoch 7: Rec Loss: 0.1354, Time: 10.43
+Epoch 8: Rec Loss: 0.1327, Time: 10.47
+Epoch 9: Rec Loss: 0.1301, Time: 10.60
+Epoch 10: Rec Loss: 0.0965, Time: 13.47
+Epoch 11: Rec Loss: 0.1020, Time: 13.31
+Epoch 12: Rec Loss: 0.1020, Time: 13.29
+Epoch 13: Rec Loss: 0.1025, Time: 13.26
+Epoch 14: Rec Loss: 0.1034, Time: 13.26
+Epoch 15: Rec Loss: 0.1038, Time: 13.16
+Epoch 16: Rec Loss: 0.1037, Time: 13.23
+Epoch 17: Rec Loss: 0.1029, Time: 13.17
+Epoch 18: Rec Loss: 0.0967, Time: 13.19
+Epoch 19: Rec Loss: 0.0951, Time: 13.17
+Validation - Time: 148.94
+Recommendation Performanceat Epoch 19:
+Recall@20: 0.0767, NDCG@20: 0.0447;
+Recall@50: 0.1412, NDCG@50: 0.0634;
+Epoch 20: Rec Loss: 0.0982, Time: 13.12
+Epoch 21: Rec Loss: 0.0939, Time: 13.13
+Epoch 22: Rec Loss: 0.0954, Time: 13.08
+Epoch 23: Rec Loss: 0.0929, Time: 13.06
+Epoch 24: Rec Loss: 0.0976, Time: 13.08
+Epoch 25: Rec Loss: 0.0984, Time: 13.16
+Epoch 26: Rec Loss: 0.0927, Time: 13.14
+Epoch 27: Rec Loss: 0.0903, Time: 13.17
+Epoch 28: Rec Loss: 0.0901, Time: 13.15
+Epoch 29: Rec Loss: 0.0927, Time: 13.16
+Epoch 30: Rec Loss: 0.0958, Time: 13.14
+Epoch 31: Rec Loss: 0.0955, Time: 13.21
+Epoch 32: Rec Loss: 0.0895, Time: 13.14
+Epoch 33: Rec Loss: 0.0911, Time: 13.18
+Epoch 34: Rec Loss: 0.0861, Time: 13.14
+Epoch 35: Rec Loss: 0.0927, Time: 13.15
+Epoch 36: Rec Loss: 0.0922, Time: 13.14
+Epoch 37: Rec Loss: 0.0915, Time: 13.16
+Epoch 38: Rec Loss: 0.0989, Time: 13.14
+Epoch 39: Rec Loss: 0.0944, Time: 13.16
+Validation - Time: 149.12
+Recommendation Performanceat Epoch 39:
+Recall@20: 0.0766, NDCG@20: 0.0448;
+Recall@50: 0.1406, NDCG@50: 0.0633;
+Epoch 40: Rec Loss: 0.0891, Time: 13.09
+Epoch 41: Rec Loss: 0.0946, Time: 13.11
+Epoch 42: Rec Loss: 0.0855, Time: 13.10
+Epoch 43: Rec Loss: 0.0863, Time: 13.09
+Epoch 44: Rec Loss: 0.0894, Time: 13.09
+Epoch 45: Rec Loss: 0.0914, Time: 13.10
+Epoch 46: Rec Loss: 0.0937, Time: 13.08
+Epoch 47: Rec Loss: 0.0946, Time: 13.10
+Epoch 48: Rec Loss: 0.0947, Time: 13.12
+Epoch 49: Rec Loss: 0.0893, Time: 13.18
+Epoch 50: Rec Loss: 0.0874, Time: 13.13
+Epoch 51: Rec Loss: 0.0933, Time: 13.15
+Epoch 52: Rec Loss: 0.1006, Time: 13.14
+Epoch 53: Rec Loss: 0.1017, Time: 13.16
+Epoch 54: Rec Loss: 0.0981, Time: 13.14
+Epoch 55: Rec Loss: 0.0915, Time: 13.16
+Epoch 56: Rec Loss: 0.0937, Time: 13.14
+Epoch 57: Rec Loss: 0.0917, Time: 13.15
+Epoch 58: Rec Loss: 0.1015, Time: 13.12
+Epoch 59: Rec Loss: 0.0973, Time: 13.15
+Validation - Time: 149.18
+Recommendation Performanceat Epoch 59:
+Recall@20: 0.0777, NDCG@20: 0.0455;
+Recall@50: 0.1427, NDCG@50: 0.0644;
+Epoch 60: Rec Loss: 0.0943, Time: 13.07
+Epoch 61: Rec Loss: 0.0957, Time: 13.08
+Epoch 62: Rec Loss: 0.0884, Time: 13.07
+Epoch 63: Rec Loss: 0.0979, Time: 13.08
+Epoch 64: Rec Loss: 0.0988, Time: 13.07
+Epoch 65: Rec Loss: 0.1000, Time: 13.08
+Epoch 66: Rec Loss: 0.0904, Time: 13.07
+Epoch 67: Rec Loss: 0.0915, Time: 13.10
+Epoch 68: Rec Loss: 0.0992, Time: 13.07
+Epoch 69: Rec Loss: 0.0990, Time: 13.11
+Epoch 70: Rec Loss: 0.0981, Time: 13.08
+Epoch 71: Rec Loss: 0.0951, Time: 13.12
+Epoch 72: Rec Loss: 0.1007, Time: 13.13
+Epoch 73: Rec Loss: 0.0986, Time: 13.15
+Epoch 74: Rec Loss: 0.1004, Time: 13.14
+Epoch 75: Rec Loss: 0.0969, Time: 13.15
+Epoch 76: Rec Loss: 0.0984, Time: 13.14
+Epoch 77: Rec Loss: 0.0993, Time: 13.17
+Epoch 78: Rec Loss: 0.0996, Time: 13.15
+Epoch 79: Rec Loss: 0.0983, Time: 13.18
+Validation - Time: 149.95
+Recommendation Performanceat Epoch 79:
+Recall@20: 0.0787, NDCG@20: 0.0458;
+Recall@50: 0.1439, NDCG@50: 0.0647;
+Epoch 80: Rec Loss: 0.0951, Time: 13.14
+Epoch 81: Rec Loss: 0.0940, Time: 13.16
+Epoch 82: Rec Loss: 0.0938, Time: 13.14
+Epoch 83: Rec Loss: 0.1006, Time: 13.11
+Epoch 84: Rec Loss: 0.1024, Time: 13.08
+Epoch 85: Rec Loss: 0.1014, Time: 13.11
+Epoch 86: Rec Loss: 0.0984, Time: 13.08
+Epoch 87: Rec Loss: 0.1008, Time: 13.11
+Epoch 88: Rec Loss: 0.0965, Time: 13.09
+Epoch 89: Rec Loss: 0.1024, Time: 13.10
+Epoch 90: Rec Loss: 0.1036, Time: 13.08
+Epoch 91: Rec Loss: 0.1021, Time: 13.12
+Epoch 92: Rec Loss: 0.0989, Time: 13.13
+Epoch 93: Rec Loss: 0.1019, Time: 13.09
+Epoch 94: Rec Loss: 0.0966, Time: 13.10
+Epoch 95: Rec Loss: 0.0962, Time: 13.14
+Epoch 96: Rec Loss: 0.1013, Time: 13.14
+Epoch 97: Rec Loss: 0.1025, Time: 13.16
+Epoch 98: Rec Loss: 0.1010, Time: 13.13
+Epoch 99: Rec Loss: 0.0979, Time: 13.17
+Validation - Time: 149.08
+Recommendation Performanceat Epoch 99:
+Recall@20: 0.0782, NDCG@20: 0.0456;
+Recall@50: 0.1442, NDCG@50: 0.0647;
+Test - Time: 216.96
+Recommendation Performance:
+Recall@20: 0.0800, NDCG@20: 0.0524;
+Recall@50: 0.1448, NDCG@50: 0.0735;

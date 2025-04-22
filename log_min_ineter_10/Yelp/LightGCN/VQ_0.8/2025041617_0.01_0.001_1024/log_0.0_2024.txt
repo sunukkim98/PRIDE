@@ -1,0 +1,131 @@
+{'seed': 2024, 'model': 'LightGCN', 'dataset': 'Yelp', 'min_interaction': 10, 'noise': 0.0, 'add_p': 1.0, 'out_dim': 64, 'use_gpu': True, 'device': device(type='cuda'), 'device_id': [0], 'batch_size': 2048, 'test_batch_size': 2048, 'patience': 100, 'val_interval': 20, 'lr': 0.01, 'weight_decay': 0.001, 'min_epochs': 40, 'n_epochs': 100, 'rec_top_k': [20, 50], 'method': 'VQ', 'temp': 0.1, 'item_num': 5, 'num_codebook': 1024, 'num_hirearchy': 3, 'main_file': '2025041617_0.01_0.001_1024'}
+LightGCN
+{'device': device(type='cuda'), 'dim': 64, 'n_layers': 4, 'denoise_config': {'num_codebook': 1024, 'num_hirearchy': 3, 'codebook_dimension': 64, 'begin_adv': 10}}
+#User: 31668, #Item: 38048, #Ratings: 1561406, AvgLen: 49.3, Sparsity: 99.88
+Create Dataloader with batch_size:2048
+/home/minseo/vq2/PLD/utls/mydataset.py:196: UserWarning: torch.sparse.SparseTensor(indices, values, shape, *, device=) is deprecated.  Please use torch.sparse_coo_tensor(indices, values, shape, dtype=, device=). (Triggered internally at /opt/conda/conda-bld/pytorch_1708025845206/work/torch/csrc/utils/tensor_new.cpp:618.)
+  Graph = torch.sparse.IntTensor(index, data, torch.Size([self.n_users+self.n_items, self.n_users+self.n_items]))
+Epoch 0: Rec Loss: 0.1843, Time: 15.66
+Epoch 1: Rec Loss: 0.1391, Time: 15.43
+Epoch 2: Rec Loss: 0.1310, Time: 15.43
+Epoch 3: Rec Loss: 0.1273, Time: 15.43
+Epoch 4: Rec Loss: 0.1246, Time: 15.45
+Epoch 5: Rec Loss: 0.1230, Time: 15.42
+Epoch 6: Rec Loss: 0.1224, Time: 15.44
+Epoch 7: Rec Loss: 0.1214, Time: 15.43
+Epoch 8: Rec Loss: 0.1211, Time: 15.50
+Epoch 9: Rec Loss: 0.1206, Time: 15.69
+Epoch 10: Rec Loss: 0.0837, Time: 27.75
+Epoch 11: Rec Loss: 0.0855, Time: 27.70
+Epoch 12: Rec Loss: 0.0848, Time: 27.68
+Epoch 13: Rec Loss: 0.0832, Time: 27.94
+Epoch 14: Rec Loss: 0.0792, Time: 27.82
+Epoch 15: Rec Loss: 0.0742, Time: 27.73
+Epoch 16: Rec Loss: 0.0725, Time: 27.71
+Epoch 17: Rec Loss: 0.0755, Time: 27.72
+Epoch 18: Rec Loss: 0.0828, Time: 27.71
+Epoch 19: Rec Loss: 0.0806, Time: 27.69
+Validation - Time: 177.41
+Recommendation Performanceat Epoch 19:
+Recall@20: 0.0634, NDCG@20: 0.0413;
+Recall@50: 0.1183, NDCG@50: 0.0593;
+Epoch 20: Rec Loss: 0.0841, Time: 27.42
+Epoch 21: Rec Loss: 0.0853, Time: 27.45
+Epoch 22: Rec Loss: 0.0869, Time: 27.45
+Epoch 23: Rec Loss: 0.0890, Time: 27.44
+Epoch 24: Rec Loss: 0.0893, Time: 27.45
+Epoch 25: Rec Loss: 0.0846, Time: 27.55
+Epoch 26: Rec Loss: 0.0867, Time: 27.70
+Epoch 27: Rec Loss: 0.0873, Time: 27.70
+Epoch 28: Rec Loss: 0.0908, Time: 27.67
+Epoch 29: Rec Loss: 0.0907, Time: 27.67
+Epoch 30: Rec Loss: 0.0888, Time: 27.65
+Epoch 31: Rec Loss: 0.0914, Time: 27.67
+Epoch 32: Rec Loss: 0.0902, Time: 27.69
+Epoch 33: Rec Loss: 0.0909, Time: 27.68
+Epoch 34: Rec Loss: 0.0894, Time: 27.67
+Epoch 35: Rec Loss: 0.0895, Time: 27.68
+Epoch 36: Rec Loss: 0.0944, Time: 27.68
+Epoch 37: Rec Loss: 0.0910, Time: 27.67
+Epoch 38: Rec Loss: 0.0905, Time: 27.66
+Epoch 39: Rec Loss: 0.0888, Time: 27.67
+Validation - Time: 177.33
+Recommendation Performanceat Epoch 39:
+Recall@20: 0.0644, NDCG@20: 0.0424;
+Recall@50: 0.1239, NDCG@50: 0.0618;
+Epoch 40: Rec Loss: 0.0892, Time: 27.41
+Epoch 41: Rec Loss: 0.0881, Time: 27.43
+Epoch 42: Rec Loss: 0.0882, Time: 27.66
+Epoch 43: Rec Loss: 0.0914, Time: 27.65
+Epoch 44: Rec Loss: 0.0892, Time: 27.67
+Epoch 45: Rec Loss: 0.0868, Time: 27.69
+Epoch 46: Rec Loss: 0.0887, Time: 27.65
+Epoch 47: Rec Loss: 0.0900, Time: 27.68
+Epoch 48: Rec Loss: 0.0916, Time: 27.69
+Epoch 49: Rec Loss: 0.0900, Time: 27.66
+Epoch 50: Rec Loss: 0.0902, Time: 27.68
+Epoch 51: Rec Loss: 0.0881, Time: 27.69
+Epoch 52: Rec Loss: 0.0874, Time: 27.67
+Epoch 53: Rec Loss: 0.0899, Time: 27.68
+Epoch 54: Rec Loss: 0.0888, Time: 27.68
+Epoch 55: Rec Loss: 0.0880, Time: 27.69
+Epoch 56: Rec Loss: 0.0889, Time: 27.70
+Epoch 57: Rec Loss: 0.0897, Time: 27.65
+Epoch 58: Rec Loss: 0.0900, Time: 27.53
+Epoch 59: Rec Loss: 0.0875, Time: 27.45
+Validation - Time: 177.78
+Recommendation Performanceat Epoch 59:
+Recall@20: 0.0649, NDCG@20: 0.0425;
+Recall@50: 0.1226, NDCG@50: 0.0614;
+Epoch 60: Rec Loss: 0.0903, Time: 27.43
+Epoch 61: Rec Loss: 0.0914, Time: 27.43
+Epoch 62: Rec Loss: 0.0910, Time: 27.43
+Epoch 63: Rec Loss: 0.0893, Time: 27.47
+Epoch 64: Rec Loss: 0.0875, Time: 27.43
+Epoch 65: Rec Loss: 0.0893, Time: 27.44
+Epoch 66: Rec Loss: 0.0904, Time: 27.44
+Epoch 67: Rec Loss: 0.0894, Time: 27.44
+Epoch 68: Rec Loss: 0.0904, Time: 27.64
+Epoch 69: Rec Loss: 0.0913, Time: 30.13
+Epoch 70: Rec Loss: 0.0886, Time: 27.63
+Epoch 71: Rec Loss: 0.0850, Time: 27.64
+Epoch 72: Rec Loss: 0.0867, Time: 27.63
+Epoch 73: Rec Loss: 0.0829, Time: 27.62
+Epoch 74: Rec Loss: 0.0757, Time: 27.61
+Epoch 75: Rec Loss: 0.0757, Time: 27.61
+Epoch 76: Rec Loss: 0.0823, Time: 27.56
+Epoch 77: Rec Loss: 0.0860, Time: 27.44
+Epoch 78: Rec Loss: 0.0850, Time: 27.39
+Epoch 79: Rec Loss: 0.0913, Time: 27.42
+Validation - Time: 177.51
+Recommendation Performanceat Epoch 79:
+Recall@20: 0.0642, NDCG@20: 0.0422;
+Recall@50: 0.1221, NDCG@50: 0.0612;
+Epoch 80: Rec Loss: 0.0894, Time: 27.57
+Epoch 81: Rec Loss: 0.0906, Time: 27.61
+Epoch 82: Rec Loss: 0.0914, Time: 27.58
+Epoch 83: Rec Loss: 0.0912, Time: 27.47
+Epoch 84: Rec Loss: 0.0915, Time: 27.49
+Epoch 85: Rec Loss: 0.0911, Time: 27.49
+Epoch 86: Rec Loss: 0.0913, Time: 27.47
+Epoch 87: Rec Loss: 0.0911, Time: 27.58
+Epoch 88: Rec Loss: 0.0913, Time: 27.61
+Epoch 89: Rec Loss: 0.0910, Time: 27.62
+Epoch 90: Rec Loss: 0.0894, Time: 27.60
+Epoch 91: Rec Loss: 0.0909, Time: 27.61
+Epoch 92: Rec Loss: 0.0922, Time: 27.61
+Epoch 93: Rec Loss: 0.0926, Time: 27.61
+Epoch 94: Rec Loss: 0.0898, Time: 27.62
+Epoch 95: Rec Loss: 0.0897, Time: 27.51
+Epoch 96: Rec Loss: 0.0901, Time: 27.46
+Epoch 97: Rec Loss: 0.0906, Time: 27.47
+Epoch 98: Rec Loss: 0.0918, Time: 27.47
+Epoch 99: Rec Loss: 0.0914, Time: 27.47
+Validation - Time: 177.17
+Recommendation Performanceat Epoch 99:
+Recall@20: 0.0644, NDCG@20: 0.0423;
+Recall@50: 0.1228, NDCG@50: 0.0615;
+Test - Time: 284.55
+Recommendation Performance:
+Recall@20: 0.0658, NDCG@20: 0.0514;
+Recall@50: 0.1238, NDCG@50: 0.0738;

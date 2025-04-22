@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='RS Models')
 
 parser.add_argument('--seed', type=int, default=2024, help='seed')
 
-parser.add_argument('--model', type=str, default='MF', help='model')
+parser.add_argument('--model', type=str, default='LightGCN', help='model')
 
 # dataset
 parser.add_argument('--dataset', type=str, default='MIND', help='dataset')
@@ -47,6 +47,7 @@ parser.add_argument('--item_num', type=int, default=5, help='max epoch')
 parser.add_argument('--num_codebook', type=int, default=128, help='size of codebook')
 parser.add_argument('--num_hirearchy', type=int, default=3, help='number of codebook')
 parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
+parser.add_argument('--ema', type=float, default=0.8, help='ema')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id

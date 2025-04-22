@@ -151,7 +151,6 @@ class CFDataset(BasicDataset):
         pos_item_list = []
         neg_item_list = []
         user_list = np.random.randint(0, self.n_users, len(inter_list))
-        
         if multi_sample:
             for user in user_list:
                 if len(self.train_data[user]) >= k:

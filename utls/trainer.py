@@ -15,6 +15,7 @@ from model.NeuMF.NeuMF import *
 from utls.utilize import slice_lists, batch_split
 from vector_quantize_pytorch.residual_vq import ResidualVQ
 import copy
+from model.BOD.GraphGenerator_VAE import GraphGenerator_VAE
 
 class BasicTrainer:
     def __init__(self, trainer_config) -> None:
@@ -153,7 +154,6 @@ class CFTrainer(BasicTrainer):
 
         recall_list = [0.0 for _ in self.config["rec_top_k"]]
         ndcg_list = [0.0 for _ in self.config["rec_top_k"]]
-    
 
         user_list = list(range(self.dataset.n_users))
         for batch_data in batch_split(users=user_list, batch_size=self.config["test_batch_size"]):
@@ -161,33 +161,34 @@ class CFTrainer(BasicTrainer):
                 user_id_list, user_inter_list, user_train_list = self.dataset.get_val_batch(batch_data)
             else:
                 user_id_list, user_inter_list, user_train_list = self.dataset.get_test_batch(batch_data)
-            
+
             with torch.no_grad():
-                score_list = self.model.predict(user_id_list)
+                score_list = self.model.predict(user_id_list).to(self.device)  # (B, num_items)
 
             for idx, user_train_items in enumerate(user_train_list):
-                score_list[idx, user_train_items] = float('-inf')
+                if len(user_train_items) > 0:
+                    train_items_tensor = torch.tensor(user_train_items, dtype=torch.long, device=self.device)
+                    score_list[idx].index_fill_(0, train_items_tensor, float('-inf'))  # GPU-safe masking
+
             max_k = max(top_ks)
 
             for user_idx, user_inter_items in enumerate(user_inter_list):
+                gt_set = set(user_inter_items)
                 _, top_indices = torch.topk(score_list[user_idx], max_k)
+                top_indices = top_indices.tolist()
+
                 for idx, k in enumerate(top_ks):
-                    top_indices_k = top_indices[:k]
-                    
-                    num_hits = sum([1 for item in user_inter_items if item in top_indices_k])
+                    top_k = top_indices[:k]
 
-                    # Recall@k
-                    recall_k = num_hits / len(user_inter_items) if user_inter_items else 0.0
+                    num_hits = sum([1 for item in top_k if item in gt_set])
+                    recall_k = num_hits / len(gt_set) if gt_set else 0.0
 
-                    # NDCG@k
-                    dcg = sum([1 / np.log2(i + 2) for i, item in enumerate(top_indices_k) if item in user_inter_items])
-                    idcg = sum([1.0 / np.log2(i + 2) for i in range(len(user_inter_items))])
-                    idcg = 1.0 if idcg == 0 else idcg
-                    ndcg_k = dcg / idcg
+                    dcg = sum([1 / np.log2(i + 2) for i, item in enumerate(top_k) if item in gt_set])
+                    idcg = sum([1.0 / np.log2(i + 2) for i in range(len(gt_set))])
+                    ndcg_k = dcg / idcg if idcg > 0 else 0.0
 
                     recall_list[idx] += recall_k
                     ndcg_list[idx] += ndcg_k
-
 
         avg_hr = [hr / self.dataset.n_users for hr in recall_list]
         avg_ndcg = [ndcg / self.dataset.n_users for ndcg in ndcg_list]
@@ -197,7 +198,7 @@ class CFTrainer(BasicTrainer):
 
         epoch_text = f"at Epoch {epoch}" if eval_type == 'val' else ""
         self._print_performance("Recommendation Performance" + epoch_text, ("Recall", "NDCG"), avg_hr, avg_ndcg, self.config["rec_top_k"])
-    
+
         return recall_list, ndcg_list
 
 
@@ -327,6 +328,7 @@ class VQCFTrainer(CFTrainer):
                 user_hist = user_hist_all[user_ids].to(self.device)  # (B, C)
 
                 # Normalize to get attention weights
+                #user_attn = torch.softmax(user_hist, dim=1)  # (B, C)
                 user_attn = user_hist / (user_hist.sum(dim=1, keepdim=True) + 1e-8)  # (B, C)
 
                 # --- codebook 기반 user centroid ---
@@ -343,6 +345,7 @@ class VQCFTrainer(CFTrainer):
                 prev = self.prev_centroids[0]
                 curr = temp_codebook.layers[0].codebook.detach()
                 delta = torch.norm(curr - prev, dim=1)
+                #norm_delta = delta / sum(delta)
                 norm_delta = (delta - delta.min()) / (delta.max() - delta.min() + 1e-8)
                 inv_delta = 1.0 - norm_delta  # 안정도
 
@@ -358,6 +361,8 @@ class VQCFTrainer(CFTrainer):
             
             self.opt.zero_grad()
             loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + self.config["weight_decay"] * l2_norm_sq
+            # loss = (self._rec_loss(pos_logits, neg_logits) * weights).sum() / weights.sum()
+            # loss =  loss.mean() + self.config["weight_decay"] * l2_norm_sq
             loss.backward()
             self.opt.step()
             epoch_loss += loss.item()
@@ -368,3 +373,139 @@ class VQCFTrainer(CFTrainer):
         
         end_t = time.time()
         print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
+
+class BODCFTrainer(CFTrainer):
+    def __init__(self, trainer_config):
+        super().__init__(trainer_config)
+        
+        # BOD-specific config
+        self.generator_lr = 0.001
+        self.generator_reg = 0.0001
+        self.weight_bpr = 1
+        self.weight_alignment = 1
+        self.weight_uniformity = 1
+        self.outer_loop = 1
+        self.inner_loop = 1
+
+        # Generator init
+        self.model_generator = GraphGenerator_VAE(self.dataset, emb_size=64).to(self.device)
+        self.generator_opt = torch.optim.Adam(self.model_generator.parameters(), lr=self.generator_lr)
+
+        # Save backbone model reference for gradient matching
+        self.model_parameters = list(self.model.parameters())
+    
+    def bpr_loss_weight(self, user_emb, pos_item_emb, neg_item_emb, weight_pos, weight_neg):
+        pos_score = weight_pos*torch.mul(user_emb, pos_item_emb).sum(dim=1)
+        neg_score = weight_neg*torch.mul(user_emb, neg_item_emb).sum(dim=1)
+        loss = -torch.log(10e-8 + torch.sigmoid(pos_score - neg_score))
+        return torch.mean(loss)
+ 
+    def alignment_loss_weight_1(self, x, y, weight, alpha=2):
+        x, y = F.normalize(x, dim=-1), F.normalize(y, dim=-1)
+        loss = (x - y).norm(p=2, dim=1).pow(alpha)
+        return (weight*loss).mean()
+
+    def uniformity_loss(self, x, t=2):
+        x = F.normalize(x, dim=-1)
+        return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean().log()
+
+    def l2_reg_loss(self, reg, *args):
+        emb_loss = 0
+        for emb in args:
+            emb_loss += torch.norm(emb, p=2)
+        return emb_loss * reg
+    
+    def distance_wb(self, gwr, gws):
+        shape = gwr.shape
+
+        # TODO: output node!!!!
+        if len(gwr.shape) == 2:
+            gwr = gwr.T
+            gws = gws.T
+        if len(shape) == 4: # conv, out*in*h*w
+            gwr = gwr.reshape(shape[0], shape[1] * shape[2] * shape[3])
+            gws = gws.reshape(shape[0], shape[1] * shape[2] * shape[3])
+        elif len(shape) == 3:  # layernorm, C*h*w
+            gwr = gwr.reshape(shape[0], shape[1] * shape[2])
+            gws = gws.reshape(shape[0], shape[1] * shape[2])
+        elif len(shape) == 2: # linear, out*in
+            tmp = 'do nothing'
+        elif len(shape) == 1: # batchnorm/instancenorm, C; groupnorm x, bias
+            gwr = gwr.reshape(1, shape[0])
+            gws = gws.reshape(1, shape[0])
+            return 0
+
+        dis_weight = torch.sum(1 - torch.sum(gwr * gws, dim=-1) / (torch.norm(gwr, dim=-1) * torch.norm(gws, dim=-1) + 0.000001))
+        dis = dis_weight
+        return dis
+    
+    def match_loss(self, gw_syn, gw_real, dis_metric):
+        dis = torch.tensor(0.0).to('cuda')
+        if dis_metric == 'ours':
+            for ig in range(len(gw_real)):
+                gwr = gw_real[ig]
+                gws = gw_syn[ig]
+                dis += self.distance_wb(gwr, gws)
+        else:
+            exit('DC error: unknown distance function')
+        return dis
+
+    def _train_epoch(self, epoch):
+        # === Inner Loop ===
+        for inner_iter in range(self.inner_loop):
+            for batch in self.dataloader:
+                user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch)
+                self.model.train()
+                self.opt.zero_grad()
+                self.generator_opt.zero_grad()
+
+                # forward backbone
+                user_emb, item_emb = self.model._get_rep()
+                u_emb = user_emb[user_id_list]
+                i_emb = item_emb[pos_item_list]
+                j_emb = item_emb[neg_item_list]
+
+                # generator weight
+                w_pos = self.model_generator(u_emb, i_emb).detach()
+                w_neg = self.model_generator(u_emb, j_emb).detach()
+
+                # loss
+                loss_bpr = self.bpr_loss_weight(u_emb, i_emb, j_emb, w_pos, w_neg)
+                loss_align = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)
+                loss_uniform = (self.uniformity_loss(u_emb) + self.uniformity_loss(i_emb)) / 2
+
+                loss = self.weight_bpr * loss_bpr + self.weight_alignment * loss_align + self.weight_uniformity * loss_uniform
+
+                loss.backward()
+                self.opt.step()
+
+        # === Outer Loop (Generator update) ===
+        for _ in range(self.outer_loop):
+            self.model.eval()
+            user_emb, item_emb = self.model._get_rep()
+            rand_user_list = np.random.randint(0, self.dataset.n_users, size=2048)
+            batch = self.dataset.get_train_batch(rand_user_list)
+            u, i, j = batch
+            u_emb = user_emb[u]
+            i_emb = item_emb[i]
+            j_emb = item_emb[j]
+
+            w_pos = self.model_generator(u_emb, i_emb)
+            w_neg = self.model_generator(u_emb, j_emb)
+
+            loss_real = self.bpr_loss_weight(u_emb, i_emb, j_emb, w_pos.detach(), w_neg.detach())
+            gw_real = torch.autograd.grad(loss_real, self.model_parameters, retain_graph=True, create_graph=True)
+
+            # synthetic gradient via alignment
+            align_syn = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)
+            gw_syn = torch.autograd.grad(align_syn, self.model_parameters, retain_graph=True, create_graph=True)
+
+            loss_match = self.match_loss(gw_syn, gw_real, dis_metric="ours")
+            loss_reg = self.l2_reg_loss(self.generator_reg, u_emb, i_emb)
+            loss = loss_match + loss_reg
+
+            self.generator_opt.zero_grad()
+            loss.backward()
+            self.generator_opt.step()
+
+        print(f"Epoch {epoch} done.")

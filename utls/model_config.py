@@ -10,7 +10,7 @@ def get_LightGCN_config(org_config):
     config = {
         "device": org_config["device"],
         "dim": int(org_config["out_dim"]),
-        "n_layers": 4,
+        "n_layers": 3,
         }
     return config
 
@@ -43,5 +43,11 @@ def get_VQ_config(org_config):
         "codebook_dimension": org_config["out_dim"],
         "begin_adv": org_config["begin_adv"],
         "ema": org_config["ema"]
+        }
+    return config
+
+def get_BOD_config(org_config):
+    config = {
+        "device": org_config["device"],
         }
     return config

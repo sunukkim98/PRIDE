@@ -105,7 +105,7 @@ class CFDataset(BasicDataset):
             self.n_train_num += n_train_items
             all_num += n_inter_items
         
-        
+
         self.avg_inter = int(self.n_train_num / self.n_users)
 
         self._add_noise(self.config["noise"], self.config["add_p"])
@@ -185,25 +185,26 @@ class CFDataset(BasicDataset):
             for item in items:
                 user_list.append(user)
                 item_list.append(item)
+
         user_dim = torch.LongTensor(user_list)
         item_dim = torch.LongTensor(item_list)
+
         first_sub = torch.stack([user_dim, item_dim + self.n_users])
         second_sub = torch.stack([item_dim + self.n_users, user_dim])
-        index = torch.cat([first_sub, second_sub], dim=1)
-        data = torch.ones(index.size(-1)).int()
+        index = torch.cat([first_sub, second_sub], dim=1)  # [2, 2*E]
+        value = torch.ones(index.size(1))
 
-        Graph = torch.sparse.IntTensor(index, data, torch.Size([self.n_users+self.n_items, self.n_users+self.n_items]))
-        dense = Graph.to_dense()
-        D = torch.sum(dense, dim=1).float()
-        D[D==0.] = 1.
-        D_sqrt = torch.sqrt(D).unsqueeze(dim=0)
-        dense = dense/D_sqrt
-        dense = dense/D_sqrt.t()
-        index = dense.nonzero()
-        data  = dense[dense >= 1e-9]
-        assert len(index) == len(data)
+        N = self.n_users + self.n_items
+        graph = torch.sparse_coo_tensor(index, value, torch.Size([N, N]))
 
-        Graph = torch.sparse.FloatTensor(index.t(), data, torch.Size([self.n_users+self.n_items, self.n_users+self.n_items]))
-        Graph = Graph.coalesce()
+        # Degree 계산 (sparse 방식)
+        deg = torch.sparse.sum(graph, dim=1).to_dense()  # [N]
+        deg[deg == 0] = 1  # divide-by-zero 방지
+        deg_inv_sqrt = torch.pow(deg, -0.5)
 
-        return Graph
+        # edge-wise normalization
+        row, col = index
+        norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
+
+        norm_graph = torch.sparse_coo_tensor(index, norm, torch.Size([N, N])).coalesce()
+        return norm_graph

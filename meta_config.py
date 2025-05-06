@@ -28,12 +28,12 @@ parser.add_argument('--device', type=str, default='gpu', help='training device')
 parser.add_argument('--device_id', type=str, default='0', help='device id for gpu')
 parser.add_argument('--batch_size', type=int, default=2048, help='Batch size')
 parser.add_argument('--test_batch_size', type=int, default=2048, help='Batch size')
-parser.add_argument('--patience', type=int, default=100, help='patience for early stop')
+parser.add_argument('--patience', type=int, default=5, help='patience for early stop')
 parser.add_argument('--val_interval', type=int, default=20, help='Validation interval')
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight for L2 loss on basic models.')
 parser.add_argument('--min_epochs', type=int, default=40, help='min epoch')
-parser.add_argument('--n_epochs', type=int, default=100, help='max epoch')
+parser.add_argument('--n_epochs', type=int, default=1000, help='max epoch')
 
 
 parser.add_argument('--rec_top_k', type=list, default=[20, 50], help='K in evaluation')
@@ -44,10 +44,10 @@ parser.add_argument('--method', type=str, default='VQ', help='presentage of inje
 parser.add_argument('--temp', type=float, default=0.1, help='noise ratio')
 parser.add_argument('--item_num', type=int, default=5, help='max epoch')
 
-parser.add_argument('--num_codebook', type=int, default=128, help='size of codebook')
-parser.add_argument('--num_hirearchy', type=int, default=3, help='number of codebook')
+parser.add_argument('--num_codebook', type=int, default=256, help='size of codebook')
+parser.add_argument('--num_hirearchy', type=int, default=1, help='number of codebook')
 parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
-parser.add_argument('--ema', type=float, default=0.8, help='ema')
+parser.add_argument('--ema', type=float, default=0, help='ema')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id

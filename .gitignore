@@ -2,3 +2,6 @@ log/
 logs_lgn/
 slurm-trainer/
 checkpoints/
+*.txt
+data/
+analyze/

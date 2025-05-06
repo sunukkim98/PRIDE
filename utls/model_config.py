@@ -51,3 +51,15 @@ def get_BOD_config(org_config):
         "device": org_config["device"],
         }
     return config
+
+def get_TCE_config(org_config):
+    config = {
+        "device": org_config["device"],
+        }
+    return config
+
+def get_RCE_config(org_config):
+    config = {
+        "device": org_config["device"],
+        }
+    return config

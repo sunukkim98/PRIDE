@@ -451,6 +451,7 @@ class BODCFTrainer(CFTrainer):
         return dis
 
     def _train_epoch(self, epoch):
+        start_t = time.time()
         # === Inner Loop ===
         for inner_iter in range(self.inner_loop):
             for batch in self.dataloader:
@@ -507,5 +508,137 @@ class BODCFTrainer(CFTrainer):
             self.generator_opt.zero_grad()
             loss.backward()
             self.generator_opt.step()
+        end_t = time.time()
+        print(f"Epoch {epoch}, Time: {end_t-start_t:.2f}")
 
-        print(f"Epoch {epoch} done.")
+class TCECFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        
+        self.device = self.config["device"]
+        self.exponent = 1
+        self.drop_rate = 0.2
+        self.num_gradual = 30000
+        self.count = 0
+    
+    def drop_rate_schedule(self, iteration):
+        drop_rate = np.linspace(0, self.drop_rate**self.exponent, self.num_gradual)
+        if iteration < self.num_gradual:
+            return drop_rate[iteration]
+        else:
+            return drop_rate[-1]
+
+    def _rec_loss(self, pos_scores, neg_scores):
+        # 1) 기본 BPR 형태 손실
+        #    L_bpr = softplus(neg - pos) == log(1 + exp(neg - pos))
+        raw_loss = F.softplus(neg_scores - pos_scores)  # shape: (batch,)
+
+        # 2) 현재 드롭율 t 적용
+        t = self.drop_rate_schedule(self.count)
+        self.count += 1
+        weighted_loss = raw_loss * t
+
+        # 3) 손실이 작은 순서대로 샘플링 (remember_rate 만큼 유지)
+        _, idx_sorted = torch.sort(weighted_loss)  # 오름차순
+        remember_rate = 1.0 - self.drop_rate
+        k = int(remember_rate * idx_sorted.size(0))
+        idx_keep = idx_sorted[:k]
+
+        # 4) 선택된 샘플에 대해 진짜 BPR 손실 계산
+        pos_sel = pos_scores[idx_keep]
+        neg_sel = neg_scores[idx_keep]
+        bpr_loss = -torch.log(torch.sigmoid(pos_sel - neg_sel) + 1e-8).mean()
+
+        return bpr_loss
+    
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+        
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+            if self.config["model"] in ["NeuMF"]:
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+            
+           
+            
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits)).mean() + self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+
+        end_t = time.time()
+        print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
+        
+class RCECFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        
+        self.device = self.config["device"]
+        self.exponent = 1
+        self.drop_rate = 0.2
+        self.num_gradual = 30000
+        self.count = 0
+    
+    def drop_rate_schedule(self, iteration):
+        drop_rate = np.linspace(0, self.drop_rate**self.exponent, self.num_gradual)
+        if iteration < self.num_gradual:
+            return drop_rate[iteration]
+        else:
+            return drop_rate[-1]
+
+    def loss_function_bpr(pos_scores, neg_scores, t, alpha):
+        """
+        pos_scores, neg_scores: 모델이 출력한 우선순위(logit) 벡터
+        t: drop_rate_schedule(iteration) 결과 (스칼라 혹은 배치 크기 벡터)
+        alpha: 조절 파라미터 (여기선 0.2)
+        """
+        # 1) BPR 근사 손실: softplus(neg - pos) == log(1 + exp(neg - pos))
+        raw_loss = F.softplus(neg_scores - pos_scores)      # shape (batch,)
+
+        # 2) confidence p = sigmoid(pos - neg).detach()
+        p = torch.sigmoid(pos_scores - neg_scores).detach()  # shape (batch,)
+
+        # 3) focal-like weight
+        weight = p.pow(alpha) * t + (1 - p).pow(alpha) * (1 - t)
+
+        # 4) 최종 손실
+        return raw_loss * weight
+       
+    
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+        
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+            if self.config["model"] in ["NeuMF"]:
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+            
+           
+            
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits)).mean() + self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+
+        end_t = time.time()
+        print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")

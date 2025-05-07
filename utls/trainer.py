@@ -80,7 +80,7 @@ class BasicTrainer:
                         self._save_model(best_model_path)
                         patience = self.config["patience"]
                     else:
-                        patience -= self.config["val_interval"]
+                        patience -= 1
                         if patience <= 0:
                             print('Early stopping!')
                             break
@@ -354,6 +354,7 @@ class VQCFTrainer(CFTrainer):
 
                 # 최종 weight = 안정도 × 유사도
                 weights = cluster_stability * cosine_sim
+                #weights = weights / (weights.mean() + 1e-8)
                 weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8).to(self.device).detach()
                     
             else:
@@ -484,7 +485,7 @@ class BODCFTrainer(CFTrainer):
         for _ in range(self.outer_loop):
             self.model.eval()
             user_emb, item_emb = self.model._get_rep()
-            rand_user_list = np.random.randint(0, self.dataset.n_users, size=2048)
+            rand_user_list = np.random.randint(0, self.dataset.n_users, size=128)
             batch = self.dataset.get_train_batch(rand_user_list)
             u, i, j = batch
             u_emb = user_emb[u]
@@ -596,12 +597,14 @@ class RCECFTrainer(CFTrainer):
         else:
             return drop_rate[-1]
 
-    def loss_function_bpr(pos_scores, neg_scores, t, alpha):
+    def loss_function_bpr(self, pos_scores, neg_scores, alpha):
         """
         pos_scores, neg_scores: 모델이 출력한 우선순위(logit) 벡터
         t: drop_rate_schedule(iteration) 결과 (스칼라 혹은 배치 크기 벡터)
         alpha: 조절 파라미터 (여기선 0.2)
         """
+        t = self.drop_rate_schedule(self.count)
+        self.count += 1
         # 1) BPR 근사 손실: softplus(neg - pos) == log(1 + exp(neg - pos))
         raw_loss = F.softplus(neg_scores - pos_scores)      # shape (batch,)
 
@@ -634,7 +637,7 @@ class RCECFTrainer(CFTrainer):
            
             
             self.opt.zero_grad()
-            loss = (self._rec_loss(pos_logits, neg_logits)).mean() + self.config["weight_decay"] * l2_norm_sq
+            loss = (self.loss_function_bpr(pos_logits, neg_logits, 0.2)).mean() + self.config["weight_decay"] * l2_norm_sq
             loss.backward()
             self.opt.step()
             epoch_loss += loss.item()
@@ -642,3 +645,112 @@ class RCECFTrainer(CFTrainer):
 
         end_t = time.time()
         print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
+        
+class DCFCFTrainer(CFTrainer):
+    def __init__(self, config):
+        super().__init__(config)
+        self.device = config['device']
+        self.drop_rate = config.get('drop_rate', 0.2)
+        self.co_lambda = config.get('co_lambda', 0.0001)
+        self.relabel_ratio = config.get('relabel_ratio', 0.05)
+        self.sn = len(self.dataset)
+        batch_size = config.get('batch_size')
+        self.before_loss = np.zeros(batch_size, dtype=np.float32)
+
+    def soft_process(self, loss: torch.Tensor) -> torch.Tensor:
+        return torch.log(1 + loss + loss * loss / 2)
+
+    def PLC_uncertain_discard_bpr(self, pos_scores: torch.Tensor,
+                                  neg_scores: torch.Tensor,
+                                  epoch: int):
+        device = self.device
+        batch_size = pos_scores.size(0)
+
+        # 이전 손실 불러오기 (배치 크기에 맞춰)
+        prev_loss_np = self.before_loss[:batch_size]
+        prev_loss = torch.from_numpy(prev_loss_np).to(device=device, dtype=pos_scores.dtype)
+
+        # epoch 지표
+        s = torch.tensor(epoch + 1.0, device=device, dtype=pos_scores.dtype)
+
+        # BPR raw loss
+        raw_loss = F.softplus(neg_scores - pos_scores)
+        loss_mul = self.soft_process(raw_loss)
+
+        # 누적 평균 손실
+        loss_mean = (prev_loss * s + loss_mul) / (s + 1.0)
+
+        # 신뢰 경계
+        co_lambda = torch.tensor(self.co_lambda, device=device, dtype=pos_scores.dtype)
+        sn_tensor = torch.tensor(self.sn, device=device, dtype=pos_scores.dtype)
+        confidence_bound = (
+            co_lambda * (s + (co_lambda * torch.log(2 * s)) / (s * s))
+            / ((sn_tensor + 1.0) - co_lambda)
+        )
+
+        # 필터링
+        loss_filtered = F.relu(loss_mean - confidence_bound)
+
+        # 인덱스 분리
+        inds = torch.argsort(loss_filtered)
+        remember_rate = 1.0 - self.drop_rate
+        num_remember = int(remember_rate * batch_size)
+        split = int(((1.0 - self.relabel_ratio) + self.relabel_ratio * remember_rate) * batch_size)
+
+        highest_inds = inds[split:]
+        saved_inds = inds[:num_remember]
+        final_inds = torch.cat([highest_inds, saved_inds])
+        lowest_inds = inds[:split]
+
+        # BPR 손실
+        pos_sel = pos_scores[final_inds]
+        neg_sel = neg_scores[final_inds]
+        bpr_loss = -torch.log(torch.sigmoid(pos_sel - neg_sel) + 1e-8).mean()
+
+        return bpr_loss, loss_mean.detach().cpu().numpy(), lowest_inds.cpu().numpy()
+
+    def _train_epoch_update(self, loss_mean_batch: np.ndarray):
+        # 이전 손실 갱신 (배치 크기에 맞춰)
+        batch_len = loss_mean_batch.shape[0]
+        self.before_loss[:batch_len] = loss_mean_batch
+
+    def _train_epoch(self, epoch: int):
+        start = time.time()
+        total_loss = 0.0
+
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+
+            if self.config['model'] == 'NeuMF':
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(
+                    user_id_list, pos_item_list, neg_item_list
+                )
+                pos_scores = torch.sum(pos_logits, dim=1)
+                neg_scores = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(
+                    user_id_list, pos_item_list, neg_item_list
+                )
+                pos_scores = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_scores = torch.sum(users_emb * neg_items_emb, dim=1)
+
+            pos_scores = pos_scores.to(self.device)
+            neg_scores = neg_scores.to(self.device)
+
+            # PLC 기반 BPR 손실
+            loss, loss_mean_batch, _ = self.PLC_uncertain_discard_bpr(
+                pos_scores, neg_scores, epoch
+            )
+
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+
+            total_loss += loss.item()
+            self._train_epoch_update(loss_mean_batch)
+
+        elapsed = time.time() - start
+        avg_loss = total_loss / len(self.dataloader)
+        print(f"Epoch {epoch}: BPR Loss {avg_loss:.4f}, Time {elapsed:.2f}s")
+

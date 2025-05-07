@@ -5,14 +5,14 @@ class GraphGenerator_VAE(nn.Module):
         super(GraphGenerator_VAE, self).__init__()
         self.data = data
         self.latent_size = emb_size
-        self.encoder = nn.Linear(self.latent_size*2, 64)
+        self.encoder = nn.Linear(self.latent_size*2, 32)
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
-        self.fc_encoder = nn.Linear(64, 64)
-        self.fc_encoder_mu = nn.Linear(64, 16)
-        self.fc_encoder_var = nn.Linear(64, 16)
-        self.fc_reparameterize = nn.Linear(16, 64)
-        self.fc_decode = nn.Linear(64, 1)
+        self.fc_encoder = nn.Linear(32, 32)
+        self.fc_encoder_mu = nn.Linear(32, 16)
+        self.fc_encoder_var = nn.Linear(32, 16)
+        self.fc_reparameterize = nn.Linear(16, 32)
+        self.fc_decode = nn.Linear(32, 1)
 
     def encode(self, x):
         output = self.encoder(x)

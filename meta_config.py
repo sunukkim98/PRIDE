@@ -32,8 +32,8 @@ parser.add_argument('--patience', type=int, default=5, help='patience for early 
 parser.add_argument('--val_interval', type=int, default=5, help='Validation interval')
 parser.add_argument('--lr', type=float, default=1e-2, help='learning rate')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight for L2 loss on basic models.')
-parser.add_argument('--min_epochs', type=int, default=100, help='min epoch')
-parser.add_argument('--n_epochs', type=int, default=100, help='max epoch')
+parser.add_argument('--min_epochs', type=int, default=40, help='min epoch')
+parser.add_argument('--n_epochs', type=int, default=1000, help='max epoch')
 
 
 parser.add_argument('--rec_top_k', type=list, default=[20, 50], help='K in evaluation')

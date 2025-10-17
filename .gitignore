@@ -1,4 +1,6 @@
 log/
+log_0.01/
+log_gabage/
 logs_lgn/
 slurm-trainer/
 checkpoints/

@@ -22,6 +22,11 @@ class MF(nn.Module):
 
         return user_emb, posI_emb, negI_emb, reg
     
+    def _get_rep(self):
+        users = self.user_emb.weight
+        items = self.item_emb.weight   
+        return users, items
+    
     def forward_vq(self, user_list, pos_items, neg_items):
         user_emb = self.user_emb(torch.LongTensor(user_list).to(self.config["device"]))
         posI_emb = self.item_emb(torch.LongTensor(pos_items).to(self.config["device"]))

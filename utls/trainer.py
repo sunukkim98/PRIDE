@@ -15,7 +15,7 @@ from model.NeuMF.NeuMF import *
 from utls.utilize import slice_lists, batch_split
 from vector_quantize_pytorch.residual_vq import ResidualVQ
 import copy
-from model.BOD.GraphGenerator_VAE import GraphGenerator_VAE
+from model.BOD.GraphGenerator_VAE import GraphGenerator_VAE, GraphGenerator_2MLP
 
 class BasicTrainer:
     def __init__(self, trainer_config) -> None:
@@ -275,7 +275,7 @@ class PLDCFTrainer(CFTrainer):
         print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
 
 
-class VQCFTrainer(CFTrainer):
+class VQQCFTrainer(CFTrainer):
     def __init__(self, trainer_config) -> None:
         super().__init__(trainer_config)
         self.num_codebook = self.config["model_config"]['denoise_config']['num_codebook']
@@ -339,7 +339,7 @@ class VQCFTrainer(CFTrainer):
                 user_centroid = F.normalize(user_centroid, dim=1)
                 pos_vec = F.normalize(pos_items_emb, dim=1)
                 cosine_sim = torch.sum(user_centroid * pos_vec, dim=1)  # (B,)
-
+                cosine_sim = (cosine_sim + 1) / 2  # [-1, 1] → [0, 1]
                 # --- cluster 안정도: 현재 클러스터 변화량 기반 ---
             
                 prev = self.prev_centroids[0]
@@ -362,8 +362,104 @@ class VQCFTrainer(CFTrainer):
             
             self.opt.zero_grad()
             loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + self.config["weight_decay"] * l2_norm_sq
-            # loss = (self._rec_loss(pos_logits, neg_logits) * weights).sum() / weights.sum()
-            # loss =  loss.mean() + self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+        if epoch >= self.begin_adv-1:
+            # Update codebook
+            self.save_previous_codebooks()
+        
+        end_t = time.time()
+        print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
+        
+class VQQmuiCFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        self.num_codebook = self.config["model_config"]['denoise_config']['num_codebook']
+        self.device = self.config["device"]
+        self.codebook = ResidualVQ(
+                dim = self.config['out_dim'],
+                codebook_size = self.config["model_config"]['denoise_config']['num_codebook'],
+                num_quantizers = self.config["model_config"]['denoise_config']['num_hirearchy'],
+                decay = self.config["model_config"]['denoise_config']['ema']
+            ).to(self.config["device"])
+        self.begin_adv = self.config["model_config"]['denoise_config']['begin_adv']
+        self.user_interact_history = self.dataset.get_interaction_matrix(self.device)
+        self.prev_centroids = []
+    
+    def save_previous_codebooks(self): 
+        self.prev_centroids = []
+        all_items = self.model.get_all_item_emb()
+        _, _, _ = self.codebook(all_items)
+        for layer in self.codebook.layers:
+            self.prev_centroids.append(layer.codebook.clone().detach())
+    
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+        
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+            if self.config["model"] in ["NeuMF"]:
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+            
+            if epoch >= self.begin_adv:
+                temp_codebook = copy.deepcopy(self.codebook)
+                quantized_item, quantized_idx, _ = temp_codebook(all_items)  # idx: [num_hirec, N]
+                # 아이템 코드북 인덱스 (1차 레이어 기준)
+                first_layer_idx = quantized_idx.T[0]  # shape: [num_items]
+                
+                # 아이템 → 클러스터 one-hot 매핑 (num_items, num_clusters)
+                item_cluster_onehot = F.one_hot(first_layer_idx, num_classes=self.num_codebook).float()  # [N, C]
+                user_ids = torch.tensor(user_id_list, device=self.device) # scipy indexing은 numpy 필요
+               
+                # 유저별 soft histogram 계산 (B, N) @ (N, C) = (B, C)
+                user_hist_all = torch.sparse.mm(self.user_interact_history, item_cluster_onehot)
+                user_hist = user_hist_all[user_ids].to(self.device)  # (B, C)
+
+                # Normalize to get attention weights
+                #user_attn = torch.softmax(user_hist, dim=1)  # (B, C)
+                user_attn = user_hist / (user_hist.sum(dim=1, keepdim=True) + 1e-8)  # (B, C)
+
+                # --- codebook 기반 user centroid ---
+                codebook_vecs = temp_codebook.layers[0].codebook  # [K, D]
+                user_centroid = torch.matmul(user_attn, codebook_vecs)  # (B, D)
+              
+                # --- 유사도 기반 soft weight 계산 ---
+                user_centroid = F.normalize(user_centroid, dim=1)
+                pos_vec = F.normalize(pos_items_emb, dim=1)
+                cosine_sim = torch.sum(user_centroid * pos_vec, dim=1)  # (B,)
+                cosine_sim = (cosine_sim + 1) / 2  # [-1, 1] → [0, 1]
+                # --- cluster 안정도: 현재 클러스터 변화량 기반 ---
+            
+                prev = self.prev_centroids[0]
+                curr = temp_codebook.layers[0].codebook.detach()
+                delta = torch.norm(curr - prev, dim=1)
+                #norm_delta = delta / sum(delta)
+                norm_delta = (delta - delta.min()) / (delta.max() - delta.min() + 1e-8)
+                inv_delta = 1.0 - norm_delta  # 안정도
+
+                pos_code_idx = quantized_idx.T[0][pos_item_list]
+                cluster_stability = inv_delta[pos_code_idx]  # (B,)
+
+                # 최종 weight = 안정도 × 유사도
+                weights = cluster_stability
+                #weights = weights / (weights.mean() + 1e-8)
+                weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8).to(self.device).detach()
+                    
+            else:
+                weights = torch.ones(len(pos_item_list), dtype=torch.float).to(self.device).detach()
+            
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + self.config["weight_decay"] * l2_norm_sq
             loss.backward()
             self.opt.step()
             epoch_loss += loss.item()
@@ -375,113 +471,275 @@ class VQCFTrainer(CFTrainer):
         end_t = time.time()
         print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")
 
+class VQQmcsCFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        self.num_codebook = self.config["model_config"]['denoise_config']['num_codebook']
+        self.device = self.config["device"]
+        self.codebook = ResidualVQ(
+                dim = self.config['out_dim'],
+                codebook_size = self.config["model_config"]['denoise_config']['num_codebook'],
+                num_quantizers = self.config["model_config"]['denoise_config']['num_hirearchy'],
+                decay = self.config["model_config"]['denoise_config']['ema']
+            ).to(self.config["device"])
+        self.begin_adv = self.config["model_config"]['denoise_config']['begin_adv']
+        self.user_interact_history = self.dataset.get_interaction_matrix(self.device)
+        self.prev_centroids = []
+    
+    def save_previous_codebooks(self): 
+        self.prev_centroids = []
+        all_items = self.model.get_all_item_emb()
+        _, _, _ = self.codebook(all_items)
+        for layer in self.codebook.layers:
+            self.prev_centroids.append(layer.codebook.clone().detach())
+    
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+        
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+            if self.config["model"] in ["NeuMF"]:
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+            
+            if epoch >= self.begin_adv:
+                temp_codebook = copy.deepcopy(self.codebook)
+                quantized_item, quantized_idx, _ = temp_codebook(all_items)  # idx: [num_hirec, N]
+                # 아이템 코드북 인덱스 (1차 레이어 기준)
+                first_layer_idx = quantized_idx.T[0]  # shape: [num_items]
+                
+                # 아이템 → 클러스터 one-hot 매핑 (num_items, num_clusters)
+                item_cluster_onehot = F.one_hot(first_layer_idx, num_classes=self.num_codebook).float()  # [N, C]
+                user_ids = torch.tensor(user_id_list, device=self.device) # scipy indexing은 numpy 필요
+               
+                # 유저별 soft histogram 계산 (B, N) @ (N, C) = (B, C)
+                user_hist_all = torch.sparse.mm(self.user_interact_history, item_cluster_onehot)
+                user_hist = user_hist_all[user_ids].to(self.device)  # (B, C)
+
+                # Normalize to get attention weights
+                #user_attn = torch.softmax(user_hist, dim=1)  # (B, C)
+                user_attn = user_hist / (user_hist.sum(dim=1, keepdim=True) + 1e-8)  # (B, C)
+
+                # --- codebook 기반 user centroid ---
+                codebook_vecs = temp_codebook.layers[0].codebook  # [K, D]
+                user_centroid = torch.matmul(user_attn, codebook_vecs)  # (B, D)
+              
+                # --- 유사도 기반 soft weight 계산 ---
+                user_centroid = F.normalize(user_centroid, dim=1)
+                pos_vec = F.normalize(pos_items_emb, dim=1)
+                cosine_sim = torch.sum(user_centroid * pos_vec, dim=1)  # (B,)
+                cosine_sim = (cosine_sim + 1) / 2  # [-1, 1] → [0, 1]
+                # --- cluster 안정도: 현재 클러스터 변화량 기반 ---
+            
+                prev = self.prev_centroids[0]
+                curr = temp_codebook.layers[0].codebook.detach()
+                delta = torch.norm(curr - prev, dim=1)
+                #norm_delta = delta / sum(delta)
+                norm_delta = (delta - delta.min()) / (delta.max() - delta.min() + 1e-8)
+                inv_delta = 1.0 - norm_delta  # 안정도
+
+                pos_code_idx = quantized_idx.T[0][pos_item_list]
+                cluster_stability = inv_delta[pos_code_idx]  # (B,)
+
+                # 최종 weight = 안정도 × 유사도
+                weights = cosine_sim
+                #weights = weights / (weights.mean() + 1e-8)
+                weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8).to(self.device).detach()
+                    
+            else:
+                weights = torch.ones(len(pos_item_list), dtype=torch.float).to(self.device).detach()
+            
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+        if epoch >= self.begin_adv-1:
+            # Update codebook
+            self.save_previous_codebooks()
+        
+        end_t = time.time()
+        print(f"Epoch {epoch}: Rec Loss: {epoch_loss/len(self.dataloader):.4f}, Time: {end_t-start_t:.2f}")        
+
+class VQCFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        self.num_codebook = self.config["model_config"]['denoise_config']['num_codebook']
+        self.device = self.config["device"]
+        self.codebook = ResidualVQ(
+            dim=self.config['out_dim'],
+            codebook_size=self.num_codebook,
+            num_quantizers=self.config["model_config"]['denoise_config']['num_hirearchy'],
+            decay=self.config["model_config"]['denoise_config']['ema']
+        ).to(self.device)
+        self.begin_adv = self.config["model_config"]['denoise_config']['begin_adv']
+        self.user_interact_history = self.dataset.get_interaction_matrix(self.device)
+        self.prev_item_embeddings = None  # ✅ 추가
+
+    def save_previous_item_embeddings(self):
+        all_items = self.model.get_all_item_emb()
+        _, item_quan_idx, _ = self.codebook(all_items)
+        self.prev_item_idx = item_quan_idx
+        self.prev_item_embeddings = all_items.detach().clone()
+
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+
+            if self.config["model"] == "NeuMF":
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(
+                    user_id_list, pos_item_list, neg_item_list
+                )
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+
+            if epoch >= self.begin_adv:
+                # --- user intent 기반 유사도 ---
+                first_layer_idx = self.prev_item_idx.T[0]
+                item_cluster_onehot = F.one_hot(first_layer_idx, num_classes=self.num_codebook).float()
+                user_ids = torch.tensor(user_id_list, device=self.device)
+
+                user_hist_all = torch.sparse.mm(self.user_interact_history, item_cluster_onehot)
+                user_hist = user_hist_all[user_ids].to(self.device)
+                user_attn = user_hist / (user_hist.sum(dim=1, keepdim=True) + 1e-8)
+
+                codebook_vecs = self.codebook.layers[0].codebook
+                user_centroid = torch.matmul(user_attn, codebook_vecs)
+                user_centroid = F.normalize(user_centroid, dim=1)
+                pos_vec = F.normalize(pos_items_emb, dim=1)
+                cosine_sim = torch.sum(user_centroid * pos_vec, dim=1)
+                cosine_sim = (cosine_sim + 1) / 2  # [-1,1] → [0,1]
+
+                # --- item embedding 변화량 기반 안정도 ---
+                current_item_emb = self.model.get_all_item_emb().detach()
+                delta = torch.norm(current_item_emb - self.prev_item_embeddings, dim=1)  # [num_items]
+                norm_delta = (delta - delta.min()) / (delta.max() - delta.min() + 1e-8)
+                inv_delta = 1.0 - norm_delta  # 안정도: 변화 적을수록 높음
+                pos_stability = inv_delta[pos_item_list]  # (B,)
+
+                # --- 최종 weight ---
+                weights = pos_stability * cosine_sim
+                weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8)
+                weights = weights.detach()
+
+            else:
+                weights = torch.ones(len(pos_item_list), dtype=torch.float, device=self.device)
+
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + \
+                   self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+        if epoch >= self.begin_adv - 1:
+            self.save_previous_item_embeddings()  # ✅ 변경됨
+
+        end_t = time.time()
+        print(f"Epoch {epoch}: Rec Loss: {epoch_loss / len(self.dataloader):.4f}, Time: {end_t - start_t:.2f}")
+
 class BODCFTrainer(CFTrainer):
     def __init__(self, trainer_config):
         super().__init__(trainer_config)
-        
-        # BOD-specific config
+
+        # BOD-BPR config
         self.generator_lr = 0.001
         self.generator_reg = 0.0001
         self.weight_bpr = 1
-        self.weight_alignment = 1
-        self.weight_uniformity = 1
         self.outer_loop = 1
         self.inner_loop = 1
 
-        # Generator init
-        self.model_generator = GraphGenerator_VAE(self.dataset, emb_size=64).to(self.device)
+        self.model_generator = GraphGenerator_2MLP(emb_size=64).to(self.device)
         self.generator_opt = torch.optim.Adam(self.model_generator.parameters(), lr=self.generator_lr)
-
-        # Save backbone model reference for gradient matching
         self.model_parameters = list(self.model.parameters())
-    
+
     def bpr_loss_weight(self, user_emb, pos_item_emb, neg_item_emb, weight_pos, weight_neg):
-        pos_score = weight_pos*torch.mul(user_emb, pos_item_emb).sum(dim=1)
-        neg_score = weight_neg*torch.mul(user_emb, neg_item_emb).sum(dim=1)
+        pos_score = weight_pos * torch.mul(user_emb, pos_item_emb).sum(dim=1)
+        neg_score = weight_neg * torch.mul(user_emb, neg_item_emb).sum(dim=1)
         loss = -torch.log(10e-8 + torch.sigmoid(pos_score - neg_score))
         return torch.mean(loss)
- 
+
     def alignment_loss_weight_1(self, x, y, weight, alpha=2):
         x, y = F.normalize(x, dim=-1), F.normalize(y, dim=-1)
         loss = (x - y).norm(p=2, dim=1).pow(alpha)
-        return (weight*loss).mean()
-
-    def uniformity_loss(self, x, t=2):
-        x = F.normalize(x, dim=-1)
-        return torch.pdist(x, p=2).pow(2).mul(-t).exp().mean().log()
+        return (weight * loss).mean()
 
     def l2_reg_loss(self, reg, *args):
         emb_loss = 0
         for emb in args:
             emb_loss += torch.norm(emb, p=2)
         return emb_loss * reg
-    
+
     def distance_wb(self, gwr, gws):
         shape = gwr.shape
-
-        # TODO: output node!!!!
         if len(gwr.shape) == 2:
             gwr = gwr.T
             gws = gws.T
-        if len(shape) == 4: # conv, out*in*h*w
+        elif len(shape) == 4:
             gwr = gwr.reshape(shape[0], shape[1] * shape[2] * shape[3])
             gws = gws.reshape(shape[0], shape[1] * shape[2] * shape[3])
-        elif len(shape) == 3:  # layernorm, C*h*w
+        elif len(shape) == 3:
             gwr = gwr.reshape(shape[0], shape[1] * shape[2])
             gws = gws.reshape(shape[0], shape[1] * shape[2])
-        elif len(shape) == 2: # linear, out*in
-            tmp = 'do nothing'
-        elif len(shape) == 1: # batchnorm/instancenorm, C; groupnorm x, bias
+        elif len(shape) == 1:
             gwr = gwr.reshape(1, shape[0])
             gws = gws.reshape(1, shape[0])
             return 0
+        dis_weight = torch.sum(1 - torch.sum(gwr * gws, dim=-1) / (torch.norm(gwr, dim=-1) * torch.norm(gws, dim=-1) + 1e-6))
+        return dis_weight
 
-        dis_weight = torch.sum(1 - torch.sum(gwr * gws, dim=-1) / (torch.norm(gwr, dim=-1) * torch.norm(gws, dim=-1) + 0.000001))
-        dis = dis_weight
-        return dis
-    
     def match_loss(self, gw_syn, gw_real, dis_metric):
         dis = torch.tensor(0.0).to('cuda')
         if dis_metric == 'ours':
-            for ig in range(len(gw_real)):
-                gwr = gw_real[ig]
-                gws = gw_syn[ig]
-                dis += self.distance_wb(gwr, gws)
+            for i in range(len(gw_real)):
+                dis += self.distance_wb(gw_real[i], gw_syn[i])
         else:
-            exit('DC error: unknown distance function')
+            exit('Unknown distance metric')
         return dis
 
     def _train_epoch(self, epoch):
         start_t = time.time()
+
         # === Inner Loop ===
-        for inner_iter in range(self.inner_loop):
+        for _ in range(self.inner_loop):
             for batch in self.dataloader:
                 user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch)
                 self.model.train()
                 self.opt.zero_grad()
-                self.generator_opt.zero_grad()
 
-                # forward backbone
                 user_emb, item_emb = self.model._get_rep()
                 u_emb = user_emb[user_id_list]
                 i_emb = item_emb[pos_item_list]
                 j_emb = item_emb[neg_item_list]
 
-                # generator weight
                 w_pos = self.model_generator(u_emb, i_emb).detach()
                 w_neg = self.model_generator(u_emb, j_emb).detach()
 
-                # loss
+                # BPR loss only used for optimization
                 loss_bpr = self.bpr_loss_weight(u_emb, i_emb, j_emb, w_pos, w_neg)
-                loss_align = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)
-                loss_uniform = (self.uniformity_loss(u_emb) + self.uniformity_loss(i_emb)) / 2
+                _ = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)  # computed but not used
 
-                loss = self.weight_bpr * loss_bpr + self.weight_alignment * loss_align + self.weight_uniformity * loss_uniform
-
+                loss = self.weight_bpr * loss_bpr
                 loss.backward()
                 self.opt.step()
 
-        # === Outer Loop (Generator update) ===
+        # === Outer Loop ===
         for _ in range(self.outer_loop):
             self.model.eval()
             user_emb, item_emb = self.model._get_rep()
@@ -495,12 +753,13 @@ class BODCFTrainer(CFTrainer):
             w_pos = self.model_generator(u_emb, i_emb)
             w_neg = self.model_generator(u_emb, j_emb)
 
+            # real gradient: BPR-based
             loss_real = self.bpr_loss_weight(u_emb, i_emb, j_emb, w_pos.detach(), w_neg.detach())
             gw_real = torch.autograd.grad(loss_real, self.model_parameters, retain_graph=True, create_graph=True)
 
-            # synthetic gradient via alignment
-            align_syn = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)
-            gw_syn = torch.autograd.grad(align_syn, self.model_parameters, retain_graph=True, create_graph=True)
+            # synthetic gradient: AU-based
+            loss_syn = self.alignment_loss_weight_1(u_emb, i_emb, w_pos)
+            gw_syn = torch.autograd.grad(loss_syn, self.model_parameters, retain_graph=True, create_graph=True)
 
             loss_match = self.match_loss(gw_syn, gw_real, dis_metric="ours")
             loss_reg = self.l2_reg_loss(self.generator_reg, u_emb, i_emb)
@@ -509,8 +768,9 @@ class BODCFTrainer(CFTrainer):
             self.generator_opt.zero_grad()
             loss.backward()
             self.generator_opt.step()
+
         end_t = time.time()
-        print(f"Epoch {epoch}, Time: {end_t-start_t:.2f}")
+        print(f"Epoch {epoch}, Time: {end_t - start_t:.2f}")
 
 class TCECFTrainer(CFTrainer):
     def __init__(self, trainer_config) -> None:
@@ -651,11 +911,13 @@ class DCFCFTrainer(CFTrainer):
         super().__init__(config)
         self.device = config['device']
         self.drop_rate = config.get('drop_rate', 0.2)
-        self.co_lambda = config.get('co_lambda', 0.0001)
-        self.relabel_ratio = config.get('relabel_ratio', 0.05)
+        self.co_lambda = config.get('co_lambda', 0.01)
+        self.relabel_ratio = config.get('relabel_ratio', 0.03)
+        self.mean_loss_interval = config.get('mean_loss_interval', 2)  # ν
         self.sn = len(self.dataset)
         batch_size = config.get('batch_size')
-        self.before_loss = np.zeros(batch_size, dtype=np.float32)
+        self.loss_history = []
+        self.batch_size = batch_size
 
     def soft_process(self, loss: torch.Tensor) -> torch.Tensor:
         return torch.log(1 + loss + loss * loss / 2)
@@ -666,21 +928,25 @@ class DCFCFTrainer(CFTrainer):
         device = self.device
         batch_size = pos_scores.size(0)
 
-        # 이전 손실 불러오기 (배치 크기에 맞춰)
-        prev_loss_np = self.before_loss[:batch_size]
-        prev_loss = torch.from_numpy(prev_loss_np).to(device=device, dtype=pos_scores.dtype)
-
-        # epoch 지표
-        s = torch.tensor(epoch + 1.0, device=device, dtype=pos_scores.dtype)
-
         # BPR raw loss
         raw_loss = F.softplus(neg_scores - pos_scores)
         loss_mul = self.soft_process(raw_loss)
 
-        # 누적 평균 손실
-        loss_mean = (prev_loss * s + loss_mul) / (s + 1.0)
+        # 평균 손실 계산 (최근 ν 에폭 중 현재 배치 크기와 동일한 것만 사용)
+        current_len = batch_size
+        valid_hist = [hist for hist in self.loss_history if hist.shape[0] == current_len]
+        if len(valid_hist) > 0:
+            hist_stack = torch.stack([
+                hist.to(device=device, dtype=pos_scores.dtype) for hist in valid_hist
+            ])
+            hist_mean = hist_stack.mean(dim=0)
+        else:
+            hist_mean = torch.zeros(current_len, device=device, dtype=pos_scores.dtype)
 
-        # 신뢰 경계
+        s = torch.tensor(epoch + 1.0, device=device, dtype=pos_scores.dtype)
+        loss_mean = (hist_mean * s + loss_mul) / (s + 1.0)
+
+        # 신뢰 경계 계산
         co_lambda = torch.tensor(self.co_lambda, device=device, dtype=pos_scores.dtype)
         sn_tensor = torch.tensor(self.sn, device=device, dtype=pos_scores.dtype)
         confidence_bound = (
@@ -690,8 +956,6 @@ class DCFCFTrainer(CFTrainer):
 
         # 필터링
         loss_filtered = F.relu(loss_mean - confidence_bound)
-
-        # 인덱스 분리
         inds = torch.argsort(loss_filtered)
         remember_rate = 1.0 - self.drop_rate
         num_remember = int(remember_rate * batch_size)
@@ -702,17 +966,17 @@ class DCFCFTrainer(CFTrainer):
         final_inds = torch.cat([highest_inds, saved_inds])
         lowest_inds = inds[:split]
 
-        # BPR 손실
+        # 선택된 샘플로 BPR 손실 계산
         pos_sel = pos_scores[final_inds]
         neg_sel = neg_scores[final_inds]
         bpr_loss = -torch.log(torch.sigmoid(pos_sel - neg_sel) + 1e-8).mean()
 
-        return bpr_loss, loss_mean.detach().cpu().numpy(), lowest_inds.cpu().numpy()
+        return bpr_loss, loss_mul.detach().cpu(), lowest_inds.cpu()
 
-    def _train_epoch_update(self, loss_mean_batch: np.ndarray):
-        # 이전 손실 갱신 (배치 크기에 맞춰)
-        batch_len = loss_mean_batch.shape[0]
-        self.before_loss[:batch_len] = loss_mean_batch
+    def _train_epoch_update(self, loss_mean_batch: torch.Tensor):
+        self.loss_history.append(loss_mean_batch)
+        if len(self.loss_history) > self.mean_loss_interval:
+            self.loss_history.pop(0)
 
     def _train_epoch(self, epoch: int):
         start = time.time()
@@ -753,4 +1017,3 @@ class DCFCFTrainer(CFTrainer):
         elapsed = time.time() - start
         avg_loss = total_loss / len(self.dataloader)
         print(f"Epoch {epoch}: BPR Loss {avg_loss:.4f}, Time {elapsed:.2f}s")
-

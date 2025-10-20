@@ -7,6 +7,10 @@ import torch
 
 import torch.nn.functional as F
 
+from dotmap import DotMap
+from petname import english
+import hashlib
+
 def set_seed(seed=0):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -34,8 +38,8 @@ def init_run(log_path, args, seed=None):
     original_stderr = sys.stderr
     outfile = os.path.join(log_path, f"log_{args.noise}_{seed}.txt")
 
-    sys.stderr = f
-    sys.stdout = f
+    # sys.stderr = f
+    # sys.stdout = f
 
 def restore_stdout_stderr():
     global original_stdout, original_stderr, outfile
@@ -82,3 +86,43 @@ def slice_lists(list1, list2, batch_size):
 def batch_split(users, batch_size):
     for i in range(0, len(users), batch_size):
         yield users[i:i + batch_size]
+
+class RunNameGenerator:
+    """Singleton class to generate unique names based on hyperparameter hashes."""
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        """Ensures only one instance of RunNameGenerator exists."""
+        if not cls._instance:
+            cls._instance = super(RunNameGenerator, cls).__new__(cls)
+        return cls._instance
+
+    def generate_name(self, hyperparams: DotMap) -> str:
+        """Generate a unique name based on a hash derived from hyperparameters."""
+
+        def _generate_petname() -> str:
+            """Generate a random adjective-name combination."""
+            adjective = random.choice(english.adjectives)
+            name = random.choice(english.names)
+            return f"{adjective}-{name}"
+        
+        # Convert hyperparameters to a sorted string representation
+        hparam_str = "_".join(
+            [f"{k}={v}" for k, v in sorted(hyperparams.items(), key=lambda x: x[0])]
+        )
+
+        # Generate a hash integer from the hyperparameter string
+        hash_int = int(hashlib.sha256(hparam_str.encode()).hexdigest(), 16)
+
+        # Preserve the current random state to avoid affecting global randomness
+        current_state = random.getstate()
+
+        # Seed the random generator with the hash value
+        random.seed(hash_int)
+        words = _generate_petname()
+        number = random.randint(0, 999)
+
+        # Restore the original random state
+        random.setstate(current_state)
+
+        return f"{words}-{number}"

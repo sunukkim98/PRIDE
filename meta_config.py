@@ -9,6 +9,7 @@ def str2bool(s):
 
 parser = argparse.ArgumentParser(description='RS Models')
 
+parser.add_argument("--project", type=str, default="requiem", help="Project name")
 parser.add_argument('--seed', type=int, default=2024, help='seed')
 
 parser.add_argument('--model', type=str, default='LightGCN', help='model')
@@ -48,6 +49,9 @@ parser.add_argument('--num_codebook', type=int, default=64, help='size of codebo
 parser.add_argument('--num_hirearchy', type=int, default=1, help='number of codebook')
 parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
 parser.add_argument('--ema', type=float, default=0, help='ema')
+
+# Logging
+parser.add_argument("--wandb", action="store_true", help="Use W&B logging.")
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id

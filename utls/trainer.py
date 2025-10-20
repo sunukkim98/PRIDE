@@ -16,6 +16,7 @@ from utls.utilize import slice_lists, batch_split
 from vector_quantize_pytorch.residual_vq import ResidualVQ
 import copy
 from model.BOD.GraphGenerator_VAE import GraphGenerator_VAE, GraphGenerator_2MLP
+from monitor import Monitor
 
 class BasicTrainer:
     def __init__(self, trainer_config) -> None:
@@ -25,6 +26,7 @@ class BasicTrainer:
         self.min_epochs = trainer_config['min_epochs']
         self.max_patience = trainer_config.get('patience', 50)
         self.val_interval = trainer_config.get('val_interval', 1)
+        self.monitor = Monitor()
     
     def _create_dataset(self, path):
         raise NotImplementedError
@@ -71,7 +73,7 @@ class BasicTrainer:
         for epoch in range(self.n_epochs):
             self._train_epoch(epoch)
             if (epoch + 1) % self.config["val_interval"] == 0:
-                metrics_list, _ = self._eval_model(epoch)
+                metrics_list, ndcg_list = self._eval_model(epoch)
                 metrics = metrics_list[0]
                 if (epoch + 1) >= self.config["min_epochs"]:
                     if metrics > best_metrics:
@@ -197,16 +199,24 @@ class CFTrainer(BasicTrainer):
         print(("Validation - " if eval_type == 'val' else "Test - ") + f"Time: {end_t - start_t:.2f}")
 
         epoch_text = f"at Epoch {epoch}" if eval_type == 'val' else ""
-        self._print_performance("Recommendation Performance" + epoch_text, ("Recall", "NDCG"), avg_hr, avg_ndcg, self.config["rec_top_k"])
+        self._print_performance("Recommendation Performance" + epoch_text, ("Recall", "NDCG"), avg_hr, avg_ndcg, self.config["rec_top_k"], eval_type=eval_type)
 
         return recall_list, ndcg_list
 
-
-    
-    def _print_performance(self, title, metrics, m1_list, m2_list, top_k_list):
+    def _print_performance(self, title, metrics, m1_list, m2_list, top_k_list, eval_type):
         out_text = f"{title}:"
         for i, k in enumerate(top_k_list):
             out_text += f"\n{metrics[0]}@{k}: {m1_list[i]:.4f}, {metrics[1]}@{k}: {m2_list[i]:.4f};"
+            if eval_type == 'val':
+                self.monitor.log({
+                    f"valid_{metrics[0]}@{k}": m1_list[i],
+                    f"valid_{metrics[1]}@{k}": m2_list[i]
+                })
+            else:
+                self.monitor.log({
+                    f"test_{metrics[0]}@{k}": m1_list[i],
+                    f"test_{metrics[1]}@{k}": m2_list[i]
+                })
         print(out_text)
 
 

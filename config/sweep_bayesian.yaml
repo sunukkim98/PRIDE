@@ -1,0 +1,66 @@
+project: requiem
+program: python
+command:
+  - python
+  - main.py
+  - --wandb
+method: bayes
+metric:
+  name: valid_Recall@20
+  goal: maximize
+parameters:
+  seed:
+    values: [2024]
+  model:
+    values: ['LightGCN']
+  dataset:
+    values: ['MIND']
+  min_interaction:
+    values: [10]
+  noise:
+    values: [0.0]
+  add_p:
+    values: [1.0]
+  out_dim:
+    values: [64]
+  use_gpu:
+    values: [True]
+  device:
+    values: ['gpu']
+  device_id:
+    values: [0]
+  batch_size:
+    values: [1024]
+  test_batch_size:
+    values: [1024]
+  patience:
+    values: [5]
+  val_interval:
+    values: [5]
+  lr:
+    values: [0.001]          # grid search에서 고정했던 값 유지
+  weight_decay:
+    values: [0.0001]         # grid search에서 고정했던 값 유지
+  min_epochs:
+    values: [40]
+  n_epochs:
+    values: [1000]
+  rec_top_k:
+    values: [[20, 50]]
+  method:
+    values: ['VQ']
+  temp:
+    values: [0.1]
+  item_num:
+    values: [2]
+  num_codebook:
+    values: [128, 256, 512, 1024]
+  begin_adv:
+    values: [10, 15, 30, 50]
+  ema:
+    values: [0.0, 0.3, 0.5, 0.7, 0.99, 1.0]
+early_terminate:
+  type: hyperband
+  s: 2
+  eta: 3
+  max_iter: 20

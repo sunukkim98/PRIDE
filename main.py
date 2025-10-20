@@ -2,8 +2,11 @@ from meta_config import args
 from utls.model_config import *
 from utls.trainer import *
 from utls.utilize import init_run, restore_stdout_stderr
+from monitor import Monitor
 
 def main(seed=2024, main_file=""):
+    monitor = Monitor(args)
+    hyperparams = monitor.get_hyperparams()
     args.seed = seed
     path = f"./log/{args.dataset}/{args.model}/{args.method}/{main_file}/"
     

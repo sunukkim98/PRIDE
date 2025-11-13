@@ -5,15 +5,13 @@ from utls.utilize import init_run, restore_stdout_stderr
 from monitor import Monitor
 
 def main(seed=2024, main_file=""):
-    monitor = Monitor(args)
-    hyperparams = monitor.get_hyperparams()
     args.seed = seed
     path = f"./log/{args.dataset}/{args.model}/{args.method}/{main_file}/"
     
     init_run(log_path=path, args=args, seed=args.seed)
 
     glo = globals()
-    global_config = vars(args)
+    global_config = dict(args)
     global_config["main_file"] = main_file
     print(global_config)
    
@@ -30,6 +28,8 @@ def main(seed=2024, main_file=""):
 
 
 if __name__ == '__main__':
+    monitor = Monitor(args)
+    args = monitor.get_hyperparams()
     times = 1
     main_file = datetime.now().strftime('%Y%m%d%H')
     main_file = f"{main_file}_{args.lr}_{args.weight_decay}_{args.begin_adv}_{args.ema}_{args.num_codebook}_3"

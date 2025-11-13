@@ -50,6 +50,9 @@ parser.add_argument('--num_hirearchy', type=int, default=1, help='number of code
 parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
 parser.add_argument('--ema', type=float, default=0, help='ema')
 
+# Fusion method
+parser.add_argument('--alpha', type=float, default=0.2, help='alpha for r-ce weighting')
+
 # Logging
 parser.add_argument("--wandb", action="store_true", help="Use W&B logging.")
 

@@ -53,15 +53,30 @@ class Monitor:
             "seed": config.seed,
             "model": config.model,
             "dataset": config.dataset,
+            "min_interaction": config.min_interaction,
+            "noise": config.noise,
+            "add_p": config.add_p,
             "out_dim": config.out_dim,
+            "use_gpu": config.use_gpu,
+            "device": "cuda" if str(config.device) == "gpu" else config.device,
+            "device_id": config.device_id,
             "batch_size": config.batch_size,
+            "test_batch_size": config.test_batch_size,
+            "patience": config.patience,
+            "val_interval": config.val_interval,
             "lr": config.lr,
             "weight_decay": config.weight_decay,
-            "max_epochs": config.n_epochs,
+            "min_epochs": config.min_epochs,
+            "n_epochs": config.n_epochs,
+            "rec_top_k": config.rec_top_k,
             "method": config.method,
+            "temp": config.temp,
+            "item_num": config.item_num,
             "num_codebook": config.num_codebook,
-            "warm_up": config.begin_adv,
-            "ema": config.ema
+            "num_hirearchy": config.num_hirearchy,
+            "begin_adv": config.begin_adv,
+            "ema": config.ema,
+            "alpha": config.alpha
         })
 
         if wandb.run:

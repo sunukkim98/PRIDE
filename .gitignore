@@ -7,3 +7,4 @@ checkpoints/
 *.txt
 data/
 analyze/
+weights_hist/

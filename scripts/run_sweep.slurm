@@ -67,7 +67,7 @@ echo "✅ WandB Sweep created successfully: $SWEEP_ID"
 
 # Submit SLURM jobs
 echo "📡 Submitting SLURM jobs ($NUM_JOBS WandB agents in total)..."
-sbatch --array=1-"$NUM_JOBS" --job-name=wandb_agent \
+sbatch --array=1-"$NUM_JOBS" --job-name=lgn-linear_rq-gowalla \
     --output="$LOG_DIR/agent_%A_%a.out" \
     --error="$LOG_DIR/agent_%A_%a.err" \
     --gres=gpu:1 \

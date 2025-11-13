@@ -17,6 +17,7 @@ from vector_quantize_pytorch.residual_vq import ResidualVQ
 import copy
 from model.BOD.GraphGenerator_VAE import GraphGenerator_VAE, GraphGenerator_2MLP
 from monitor import Monitor
+import matplotlib.pyplot as plt
 
 class BasicTrainer:
     def __init__(self, trainer_config) -> None:
@@ -603,6 +604,7 @@ class VQCFTrainer(CFTrainer):
     def _train_epoch(self, epoch):
         start_t = time.time()
         epoch_loss = 0
+        all_weights = []
 
         for batch_data in self.dataloader:
             self.model.train()
@@ -651,6 +653,8 @@ class VQCFTrainer(CFTrainer):
             else:
                 weights = torch.ones(len(pos_item_list), dtype=torch.float, device=self.device)
 
+            all_weights.extend(weights.detach().cpu().numpy())
+
             self.opt.zero_grad()
             loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + \
                    self.config["weight_decay"] * l2_norm_sq
@@ -662,7 +666,29 @@ class VQCFTrainer(CFTrainer):
             self.save_previous_item_embeddings()  # ✅ 변경됨
 
         end_t = time.time()
-        print(f"Epoch {epoch}: Rec Loss: {epoch_loss / len(self.dataloader):.4f}, Time: {end_t - start_t:.2f}")
+        print(f"Epoch {epoch + 1}: Rec Loss: {epoch_loss / len(self.dataloader):.4f}, Time: {end_t - start_t:.2f}")
+
+        # if epoch >= self.begin_adv - 1 and (epoch + 1) % 31 == 0:
+        #     print(f"Plotting weight distribution for epoch {epoch + 1}")
+        #     os.makedirs(f"weights_hist/{self.config['model']}", exist_ok=True)
+        #     plt.hist(all_weights, bins=50)
+        #     plt.title(f"{self.config['dataset']} {self.config['model']} Epoch {epoch + 1} Weights Distribution")
+        #     plt.xlabel("Weight Value")
+        #     plt.ylabel("Frequency")
+        #     plt.savefig(f"weights_hist/{self.config['model']}/{self.config['model']}_{self.config['dataset']}_weights_distribution_epoch_{epoch + 1}.png")
+        #     plt.close()
+
+        #     weights_np = np.array(all_weights)
+        #     mean_val = weights_np.mean()
+        #     std_val = weights_np.std()
+        #     min_val = weights_np.min()
+        #     max_val = weights_np.max()
+        #     q25, q50, q75 = np.percentile(weights_np, [25, 50, 75])
+
+        #     print(f"[Stats] [Epoch {epoch + 1}]"
+        #           f" Mean: {mean_val:.4f}, Std: {std_val:.4f},"
+        #           f" Min: {min_val:.4f}, 25th Percentile: {q25:.4f},"
+        #           f" Median: {q50:.4f}, 75th Percentile: {q75:.4f}, Max: {max_val:.4f}")
 
 class BODCFTrainer(CFTrainer):
     def __init__(self, trainer_config):
@@ -1027,3 +1053,155 @@ class DCFCFTrainer(CFTrainer):
         elapsed = time.time() - start
         avg_loss = total_loss / len(self.dataloader)
         print(f"Epoch {epoch}: BPR Loss {avg_loss:.4f}, Time {elapsed:.2f}s")
+
+class LinearVQCFTrainer(CFTrainer):
+    def __init__(self, trainer_config) -> None:
+        super().__init__(trainer_config)
+        self.num_codebook = self.config["model_config"]['denoise_config']['num_codebook']
+        self.device = self.config["device"]
+        self.codebook = ResidualVQ(
+            dim=self.config['out_dim'],
+            codebook_size=self.num_codebook,
+            num_quantizers=self.config["model_config"]['denoise_config']['num_hirearchy'],
+            decay=self.config["model_config"]['denoise_config']['ema']
+        ).to(self.device)
+        self.begin_adv = self.config["model_config"]['denoise_config']['begin_adv']
+        self.user_interact_history = self.dataset.get_interaction_matrix(self.device)
+        self.prev_item_embeddings = None  # ✅ 추가
+        self.exponent = 1
+        self.drop_rate = 0.2
+        self.num_gradual = 30000
+        self.count = 0
+        self.alpha = self.config["alpha"]
+
+        self.fusion_linear = nn.Linear(3, 1) # 3개의 weight -> 1개 scalar
+        self.fusion_linear = self.fusion_linear.to(self.device)
+        self.sigmoid = nn.Sigmoid() # 출력값을 [0,1]로 제한
+
+    def save_previous_item_embeddings(self):
+        all_items = self.model.get_all_item_emb()
+        _, item_quan_idx, _ = self.codebook(all_items)
+        self.prev_item_idx = item_quan_idx
+        self.prev_item_embeddings = all_items.detach().clone()
+
+    def drop_rate_schedule(self, iteration):
+        drop_rate = np.linspace(0, self.drop_rate**self.exponent, self.num_gradual)
+        if iteration < self.num_gradual:
+            return drop_rate[iteration]
+        else:
+            return drop_rate[-1]
+
+    def loss_function_bpr(self, pos_scores, neg_scores, alpha):
+        """
+        pos_scores, neg_scores: 모델이 출력한 우선순위(logit) 벡터
+        t: drop_rate_schedule(iteration) 결과 (스칼라 혹은 배치 크기 벡터)
+        alpha: 조절 파라미터 (여기선 0.2)
+        """
+        t = self.drop_rate_schedule(self.count)
+        self.count += 1
+        # 1) BPR 근사 손실: softplus(neg - pos) == log(1 + exp(neg - pos))
+        raw_loss = F.softplus(neg_scores - pos_scores)      # shape (batch,)
+
+        # 2) confidence p = sigmoid(pos - neg).detach()
+        p = torch.sigmoid(pos_scores - neg_scores).detach()  # shape (batch,)
+
+        # 3) focal-like weight
+        weight = p.pow(alpha) * t + (1 - p).pow(alpha) * (1 - t)
+
+        # 4) 최종 손실
+        return weight
+
+    def _train_epoch(self, epoch):
+        start_t = time.time()
+        epoch_loss = 0
+        # all_weights = []
+        # all_weight_u = []
+        # all_weight_s = []
+        # all_weight_rce = []
+
+        for batch_data in self.dataloader:
+            self.model.train()
+            user_id_list, pos_item_list, neg_item_list = self.dataset.get_train_batch(batch_data)
+
+            if self.config["model"] == "NeuMF":
+                pos_logits, neg_logits, _, _, _, l2_norm_sq = self.model(user_id_list, pos_item_list, neg_item_list)
+                pos_logits = torch.sum(pos_logits, dim=1)
+                neg_logits = torch.sum(neg_logits, dim=1)
+            else:
+                users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = self.model.forward_vq(
+                    user_id_list, pos_item_list, neg_item_list
+                )
+                pos_logits = torch.sum(users_emb * pos_items_emb, dim=1)
+                neg_logits = torch.sum(users_emb * neg_items_emb, dim=1)
+
+            if epoch >= self.begin_adv:
+                # --- user intent 기반 유사도 ---
+                first_layer_idx = self.prev_item_idx.T[0]
+                item_cluster_onehot = F.one_hot(first_layer_idx, num_classes=self.num_codebook).float()
+                user_ids = torch.tensor(user_id_list, device=self.device)
+
+                user_hist_all = torch.sparse.mm(self.user_interact_history, item_cluster_onehot)
+                user_hist = user_hist_all[user_ids].to(self.device)
+                user_attn = user_hist / (user_hist.sum(dim=1, keepdim=True) + 1e-8)
+
+                codebook_vecs = self.codebook.layers[0].codebook
+                user_centroid = torch.matmul(user_attn, codebook_vecs)
+                user_centroid = F.normalize(user_centroid, dim=1)
+                pos_vec = F.normalize(pos_items_emb, dim=1)
+                cosine_sim = torch.sum(user_centroid * pos_vec, dim=1)
+                weight_u = (cosine_sim + 1) / 2  # [-1,1] → [0,1]
+
+                # --- item embedding 변화량 기반 안정도 ---
+                current_item_emb = self.model.get_all_item_emb().detach()
+                delta = torch.norm(current_item_emb - self.prev_item_embeddings, dim=1)  # [num_items]
+                norm_delta = (delta - delta.min()) / (delta.max() - delta.min() + 1e-8)
+                inv_delta = 1.0 - norm_delta  # 안정도: 변화 적을수록 높음
+                weight_s = inv_delta[pos_item_list]  # (B,)
+
+                # --- rce weight ---
+                weight_rce = self.loss_function_bpr(pos_logits, neg_logits, self.alpha)
+
+                weight_inputs = torch.stack([weight_s, weight_u, weight_rce], dim=1) # (B, 3)
+                weights = self.sigmoid(self.fusion_linear(weight_inputs)).squeeze()  # (B,)
+
+            else:
+                weights = torch.ones(len(pos_item_list), dtype=torch.float, device=self.device)
+                weight_s = weights
+                weight_u = weights
+                weight_rce = weights
+
+            # # --- Collect for histogram ---
+            # all_weights.extend(weights.detach().cpu().numpy())
+            # all_weight_u.extend(weight_u.detach().cpu().numpy())
+            # all_weight_s.extend(weight_s.detach().cpu().numpy())
+            # all_weight_rce.extend(weight_rce.detach().cpu().numpy())
+
+            # --- Loss update ---
+            self.opt.zero_grad()
+            loss = (self._rec_loss(pos_logits, neg_logits) * weights).mean() + \
+                   self.config["weight_decay"] * l2_norm_sq
+            loss.backward()
+            self.opt.step()
+            epoch_loss += loss.item()
+
+        if epoch >= self.begin_adv - 1:
+            self.save_previous_item_embeddings()  # ✅ 변경됨
+
+        end_t = time.time()
+        print(f"Epoch {epoch + 1}: Rec Loss: {epoch_loss / len(self.dataloader):.4f}, Time: {end_t - start_t:.2f}")
+
+        # # --- 히스토그램 출력 ---
+        # if epoch > self.begin_adv - 1 and (epoch + 1) % self.begin_adv == 0:
+        #     os.makedirs(f"weights_hist/{self.config['model']}/{self.config['method']}/{self.config['dataset']}", exist_ok=True)
+        #     plt.figure(figsize=(8, 6))
+        #     plt.hist(all_weight_s, bins=50, alpha=0.5, label='Weight_s (stability)')
+        #     plt.hist(all_weight_u, bins=50, alpha=0.5, label='Weight_u (intent)')
+        #     plt.hist(all_weight_rce, bins=50, alpha=0.5, label='Weight_rce (loss)')
+        #     plt.hist(all_weights, bins=50, alpha=0.7, label='Final Weight (fusion)')
+        #     plt.legend()
+        #     plt.title(f"Weights Distribution - {self.config['dataset']} Epoch {epoch + 1}")
+        #     plt.xlabel("Weight Value")
+        #     plt.ylabel("Frequency")
+        #     plt.tight_layout()
+        #     plt.savefig(f"weights_hist/{self.config['model']}/{self.config['method']}/{self.config['dataset']}/weights_comparison_epoch_{epoch + 1}.png")
+        #     plt.close()

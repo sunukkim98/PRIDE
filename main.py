@@ -20,6 +20,14 @@ def main(seed=2024, main_file=""):
     print(global_config["model"])
     print(global_config["model_config"])
     global_config['checkpoints'] = 'checkpoints'
+
+    if global_config["model"] == "NeuMF":
+        embedding_size = global_config["model_config"]["dim"]
+        mlp_dim = global_config["model_config"]["layer_sizes"][0] // 2
+        global_config["out_dim"] = embedding_size + mlp_dim
+    else:
+        global_config["out_dim"] = global_config["model_config"]["dim"]
+
     trainer_name = "CFTrainer" if global_config["method"] == "Origin" else f"{global_config['method']}CFTrainer"
     trainer =  glo[trainer_name](global_config)
     trainer.train()

@@ -1,0 +1,106 @@
+project: LGN-BOD-Noise
+program: python3
+command:
+  - python3
+  - main.py
+  - --wandb
+method: grid
+metric:
+  name: valid_Recall@20
+  goal: maximize
+parameters:
+  # --- noise sweep ---
+  noise:
+    values: [0.0, 0.1, 0.2, 0.3, 0.4]
+  # --- dataset ---
+  dataset:
+    values: ['Amazon-Book']
+  # --- best hyperparameters ---
+  lr:
+    values: [0.01]
+  weight_decay:
+    values: [0.00001]
+  alpha:
+    values: [0.2]
+  gamma:
+    values: [2.0]
+  # --- fixed ---
+  model:
+    values: ['LightGCN']
+  method:
+    values: ['BOD']
+  ablation:
+    values: ['Origin']
+  seed:
+    values: [2024]
+  min_interaction:
+    values: [10]
+  add_p:
+    values: [1.0]
+  out_dim:
+    values: [64]
+  use_gpu:
+    values: [true]
+  device:
+    values: ['gpu']
+  device_id:
+    values: [0]
+  batch_size:
+    values: [2048]
+  test_batch_size:
+    values: [2048]
+  patience:
+    values: [100]
+  val_interval:
+    values: [1]
+  min_epochs:
+    values: [0]
+  n_epochs:
+    values: [100]
+  rec_top_k:
+    values:
+      - [20, 50]
+  temp:
+    values: [0]
+  item_num:
+    values: [0]
+  num_codebook:
+    values: [0]
+  num_hirearchy:
+    values: [0]
+  begin_adv:
+    values: [0]
+  ema:
+    values: [0]
+  beta:
+    values: [0]
+  drop_rate:
+    values: [0]
+  num_gradual:
+    values: [0]
+  relabel_ratio:
+    values: [0]
+  co_lambda:
+    values: [0]
+  mean_loss_interval:
+    values: [0]
+  weight_mode:
+    values: ['lambda_power']
+  energy_r:
+    values: [0]
+  energy_lambda:
+    values: [0]
+  energy_gamma:
+    values: [0]
+  lambda_dis:
+    values: [0]
+  tau:
+    values: [0]
+  weight_eps:
+    values: [0]
+  wgm_alpha:
+    values: [0]
+  lambda_mix:
+    values: [0]
+  gate_tau:
+    values: [0]

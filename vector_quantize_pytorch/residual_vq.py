@@ -226,6 +226,11 @@ class ResidualVQ(Module):
         codebooks = torch.stack(codebooks)
         return codebooks
 
+    @property
+    def num_expired_codes_per_layer(self):
+        """Per-layer count of codes reinitialized (dead-code expiry) on the last forward pass."""
+        return [layer.num_expired_codes for layer in self.layers]
+
     def get_codes_from_indices(self, indices):
 
         batch, quantize_dim = indices.shape[0], indices.shape[-1]

@@ -326,6 +326,7 @@ class EuclideanCodebook(Module):
         self.eps = eps
         self.threshold_ema_dead_code = threshold_ema_dead_code
         self.reset_cluster_size = default(reset_cluster_size, threshold_ema_dead_code)
+        self.last_num_expired_codes = 0
 
         assert callable(gumbel_sample)
         self.gumbel_sample = gumbel_sample
@@ -473,9 +474,11 @@ class EuclideanCodebook(Module):
 
     def expire_codes_(self, batch_samples):
         if self.threshold_ema_dead_code == 0:
+            self.last_num_expired_codes = 0
             return
 
         expired_codes = self.cluster_size < self.threshold_ema_dead_code
+        self.last_num_expired_codes = expired_codes.sum().item()
 
         if not torch.any(expired_codes):
             return
@@ -642,6 +645,7 @@ class CosineSimCodebook(Module):
         self.eps = eps
         self.threshold_ema_dead_code = threshold_ema_dead_code
         self.reset_cluster_size = default(reset_cluster_size, threshold_ema_dead_code)
+        self.last_num_expired_codes = 0
 
         assert callable(gumbel_sample)
         self.gumbel_sample = gumbel_sample
@@ -702,9 +706,11 @@ class CosineSimCodebook(Module):
 
     def expire_codes_(self, batch_samples):
         if self.threshold_ema_dead_code == 0:
+            self.last_num_expired_codes = 0
             return
 
         expired_codes = self.cluster_size < self.threshold_ema_dead_code
+        self.last_num_expired_codes = expired_codes.sum().item()
 
         if not torch.any(expired_codes):
             return
@@ -985,6 +991,11 @@ class VectorQuantize(Module):
             codes = rearrange(codes, '... -> 1 ...')
 
         self._codebook.embed.copy_(codes)
+
+    @property
+    def num_expired_codes(self):
+        """Number of codes reinitialized (dead-code expiry) on the last forward pass."""
+        return self._codebook.last_num_expired_codes
 
     def get_codes_from_indices(self, indices):
         codebook = self.codebook

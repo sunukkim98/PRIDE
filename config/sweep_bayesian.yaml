@@ -1,4 +1,4 @@
-project: requiem
+project: Hybrid-REQUIEM
 program: python
 command:
   - python
@@ -12,9 +12,9 @@ parameters:
   seed:
     values: [2024]
   model:
-    values: ['LightGCN']
+    values: ['MF']
   dataset:
-    values: ['Gowalla']
+    values: ['MIND']
   min_interaction:
     values: [10]
   noise:
@@ -34,21 +34,21 @@ parameters:
   test_batch_size:
     values: [2048]
   patience:
-    values: [20]
+    values: [100]
   val_interval:
-    values: [5]
+    values: [1]
   lr:
-    values: [0.001]
+    values: [1e-3]
   weight_decay:
-    values: [0.0001]
+    values: [1e-3]
   min_epochs:
     values: [40]
   n_epochs:
-    values: [1000]
+    values: [100]
   rec_top_k:
     values: [[20, 50]]
   method:
-    values: ['LinearVQ']
+    values: ['HVQ']
   temp:
     values: [0]
   item_num:
@@ -60,9 +60,9 @@ parameters:
   begin_adv:
     values: [10, 15, 30, 50]
   ema:
-    values: [0.3, 0.5, 0.7, 0.9, 0.99]
+    values: [0.0, 0.25, 0.5, 0.75, 0.99, 1.0]
   alpha:
-    values: [0.05, 0.1, 0.2, 0.3, 0.5]
+    values: [0.25, 0.5, 1.0]
 
 early_terminate:
   type: hyperband
@@ -74,6 +74,6 @@ run_cap: 200
 min_iter: 50
 covergence:
   metric: valid_Recall@20
-  window_size: 10
+  window_size: 5
   min_improvement: 0.005
-  patience: 10
+  patience: 5

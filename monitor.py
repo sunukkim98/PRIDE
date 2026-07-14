@@ -76,7 +76,25 @@ class Monitor:
             "num_hirearchy": config.num_hirearchy,
             "begin_adv": config.begin_adv,
             "ema": config.ema,
-            "alpha": config.alpha
+            "weight_mode": config.weight_mode,
+            "beta": config.beta,
+            "ablation": config.ablation,
+            "drop_rate": config.drop_rate,
+            "num_gradual": config.num_gradual,
+            "alpha": config.alpha,
+            "gamma": config.gamma,
+            "relabel_ratio": config.relabel_ratio,
+            "co_lambda": config.co_lambda,
+            "mean_loss_interval": config.mean_loss_interval,
+            "energy_r": config.energy_r,
+            "energy_lambda": config.energy_lambda,
+            "energy_gamma": config.energy_gamma,
+            "lambda_dis": config.lambda_dis,
+            "tau": config.tau,
+            "weight_eps": config.weight_eps,
+            "wgm_alpha": config.wgm_alpha,
+            "lambda_mix": config.lambda_mix,
+            "gate_tau": config.gate_tau,
         })
 
         if wandb.run:

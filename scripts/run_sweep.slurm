@@ -5,7 +5,7 @@ export LOG_DISABLE=1
 export TQDM_DISABLE=1
 
 # Default values
-SWEEP_CONFIG="./config/sweep_bayesian.yaml"
+SWEEP_CONFIG="./config/ablation_moe_rq_lgn.yaml"
 NUM_JOBS=4
 LOG_DIR="./log/slurm"
 
@@ -67,7 +67,7 @@ echo "✅ WandB Sweep created successfully: $SWEEP_ID"
 
 # Submit SLURM jobs
 echo "📡 Submitting SLURM jobs ($NUM_JOBS WandB agents in total)..."
-sbatch --array=1-"$NUM_JOBS" --job-name=lgn-linear_rq-gowalla \
+sbatch --array=1-"$NUM_JOBS" --job-name=mf-ablation \
     --output="$LOG_DIR/agent_%A_%a.out" \
     --error="$LOG_DIR/agent_%A_%a.err" \
     --gres=gpu:1 \

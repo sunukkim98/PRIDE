@@ -61,23 +61,50 @@ class NeuMF(nn.Module):
 
         return pos_score, neg_score, users_mlp, posI_mlp, negI_mlp, reg
     
-    def predict(self, user_list):
-        users_mf = self.mf_user_embedding(torch.LongTensor(user_list).to(self.config["device"]))
-        users_mlp = self.mlp_user_embedding(torch.LongTensor(user_list).to(self.config["device"]))
-        
-        items_mf = self.mf_item_embedding.weight.to(self.config["device"])
-        items_mlp = self.mlp_item_embedding.weight.to(self.config["device"])
-        
-        
-        mf_output = users_mf.unsqueeze(1).expand(-1, self.n_items, -1) * items_mf
-        
-        mlp_output = torch.cat([users_mlp.unsqueeze(1).expand(-1, self.n_items, -1), items_mlp.unsqueeze(0).expand(len(user_list), -1, -1)], dim=2)
-        
-        for layer in self.mlp_layers:
-            mlp_output = F.leaky_relu(layer(mlp_output))
-        
-        combined_output = torch.cat([mf_output, mlp_output], dim=2).view(-1, self.layer_sizes[-1] + self.embedding_size)
-        prediction = self.output_layer(combined_output).view(len(user_list), self.n_items)
-        
+    @torch.no_grad()
+    def predict(self, user_list, item_chunk_size=2048):
+        """
+        Memory-safe full-sort prediction by chunking items.
+        Returns:
+            prediction: [B, n_items]
+        """
+        device = self.config["device"]
+        user = torch.as_tensor(user_list, dtype=torch.long, device=device)
+        B = user.size(0)
+
+        # cache user embeddings once
+        users_mf = self.mf_user_embedding(user)   # [B, emb]
+        users_mlp = self.mlp_user_embedding(user) # [B, mlp_in/2]
+
+        prediction = torch.empty((B, self.n_items), device=device, dtype=torch.float32)
+
+        for start in range(0, self.n_items, item_chunk_size):
+            end = min(start + item_chunk_size, self.n_items)
+            items = torch.arange(start, end, device=device, dtype=torch.long)
+            Ic = end - start
+
+            # MF branch: [B, Ic, emb]
+            items_mf = self.mf_item_embedding(items)  # [Ic, emb]
+            mf_output = users_mf.unsqueeze(1) * items_mf.unsqueeze(0)
+
+            # MLP branch: build [B, Ic, layer_sizes[0]] then apply layers
+            items_mlp = self.mlp_item_embedding(items)  # [Ic, mlp_in/2]
+            mlp_output = torch.cat(
+                [
+                    users_mlp.unsqueeze(1).expand(-1, Ic, -1),
+                    items_mlp.unsqueeze(0).expand(B, -1, -1),
+                ],
+                dim=2,
+            )  # [B, Ic, layer_sizes[0]]
+
+            for layer in self.mlp_layers:
+                mlp_output = F.leaky_relu(layer(mlp_output))
+
+            # Combine and score
+            combined = torch.cat([mf_output, mlp_output], dim=2)  # [B, Ic, emb + last]
+            combined = combined.view(-1, self.layer_sizes[-1] + self.embedding_size)  # [B*Ic, D]
+            chunk_pred = self.output_layer(combined).view(B, Ic)  # [B, Ic]
+
+            prediction[:, start:end] = chunk_pred
 
         return prediction

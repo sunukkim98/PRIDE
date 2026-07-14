@@ -4,7 +4,11 @@ log_gabage/
 logs_lgn/
 slurm-trainer/
 checkpoints/
-*.txt
 data/
 analyze/
 weights_hist/
+__pycache__/
+*.pyc
+*.pyo
+.codex
+tea_debug.log

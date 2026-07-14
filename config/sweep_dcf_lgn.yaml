@@ -1,0 +1,81 @@
+project: LGN-DCF
+program: python
+command:
+  - python
+  - main.py
+  - --wandb
+method: grid
+metric:
+  name: valid_Recall@20
+  goal: maximize
+parameters:
+  seed:
+    values: [2024]
+  model:
+    values: ['LightGCN']
+  dataset:
+    values: ['Yelp']
+  min_interaction:
+    values: [10]
+  noise:
+    values: [0.0]
+  add_p:
+    values: [1.0]
+  out_dim:
+    values: [64]
+  use_gpu:
+    values: [True]
+  device:
+    values: ['gpu']
+  device_id:
+    values: [0]
+  batch_size:
+    values: [2048]
+  test_batch_size:
+    values: [2048]
+  patience:
+    values: [100]
+  val_interval:
+    values: [1]
+  lr:
+    values: [1e-3]
+  weight_decay:
+    values: [1e-3]
+  min_epochs:
+    values: [0]
+  n_epochs:
+    values: [100]
+  rec_top_k:
+    values: [[20, 50]]
+  method:
+    values: ['DCF']
+  temp:
+    values: [0]
+  item_num:
+    values: [0]
+  num_codebook:
+    values: [0]
+  num_hirearchy:
+    values: [0]
+  begin_adv:
+    values: [0]
+  ema:
+    values: [0]
+  beta:
+    values: [0]
+  ablation:
+    values: ['Origin']
+  drop_rate:
+    values: [0.2]
+  num_gradual:
+    values: [0]
+  alpha:
+    values: [0]
+  gamma:
+    values: [0]
+  relabel_ratio:
+    values: [0.0, 0.01, 0.03, 0.09, 0.27]
+  co_lambda:
+    values: [0.0, 0.001, 0.01, 0.1]
+  mean_loss_interval:
+    values: [1, 2, 3, 4, 5]

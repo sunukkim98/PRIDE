@@ -84,6 +84,8 @@ class CFDataset(BasicDataset):
         self._build_set()
     
     def __len__(self):
+        if hasattr(self, "n_train_pairs"):
+            return self.n_train_pairs
         return self.n_train_num
     
     def _build_set(self):
@@ -110,11 +112,17 @@ class CFDataset(BasicDataset):
 
         self._add_noise(self.config["noise"], self.config["add_p"])
 
+        self.n_train_num = sum(len(items) for items in self.train_data)
+
+        self._build_dcf_train_pairs()
 
         print(f"#User: {self.n_users}, #Item: {self.n_items}, #Ratings: {all_num}, AvgLen: {int(10 * (all_num / self.n_users)) / 10}, Sparsity: {100 - int(10000 * all_num / (self.n_users * self.n_items)) / 100}")
 
     def _add_noise(self, noise_ratio, add_p):
-        user_noise = {}
+        # user_noise = {}
+        self.user_noise = {}
+        self.noisy_pairs = set()
+
         if noise_ratio == 0.0:
             return
         for user, interaction in enumerate(self.train_data):
@@ -124,11 +132,42 @@ class CFDataset(BasicDataset):
                 available_items = set(range(self.n_items)) - set(interaction)
                 noisy_items = random.sample(available_items, noisy)
                 
-                user_noise[user] = noisy_items
+                self.user_noise[user] = noisy_items
+                for item in noisy_items:
+                    self.noisy_pairs.add((user, item))
 
                 # 拼接到 interaction 后
                 interaction.extend(noisy_items)
                 self.train_data[user] = interaction
+
+    def _build_dcf_train_pairs(self):
+        """
+        DCF-BPR용 train pair pool 구성
+        sample_id == self.train_pairs index
+        """
+        self.train_pairs = []
+        self.active_pair_mask = []
+
+        for user in range(self.n_users):
+            for item in self.train_data[user]:
+                is_noisy = 0
+                if hasattr(self, "noisy_pairs") and (user, item) in self.noisy_pairs:
+                    is_noisy = 1
+                
+                self.train_pairs.append({
+                    "user": user,
+                    "item": item,
+                    "is_noisy": is_noisy
+                })
+                self.active_pair_mask.append(True)
+        
+        self.active_pair_mask = np.array(self.active_pair_mask, dtype=bool)
+        self.n_train_pairs = len(self.train_pairs)
+
+    def get_active_train_size(self):
+        if hasattr(self, "active_pair_mask"):
+            return int(self.active_pair_mask.sum())
+        return self.n_train_num
 
     def get_interaction_matrix(self, device):
         user_list = []
@@ -143,13 +182,33 @@ class CFDataset(BasicDataset):
         index = torch.stack((user_dim, item_dim))
         data = torch.ones(index.size(-1), device=device)
         Graph = torch.sparse_coo_tensor(index, data, torch.Size([self.n_users, self.n_items]), device=device)
-        return Graph
+        return Graph 
     
+    def get_interaction_matrix_dcf(self, device):
+        user_list = []
+        item_list = []
+
+        for sid, pair in enumerate(self.train_pairs):
+            if hasattr(self, "active_pair_mask") and not self.active_pair_mask[sid]:
+                continue
+            user_list.append(pair["user"])
+            item_list.append(pair["item"])
+
+        user_dim = torch.tensor(user_list, device=device)
+        item_dim = torch.tensor(item_list, device=device)
+        index = torch.stack((user_dim, item_dim))
+        data = torch.ones(index.size(-1), device=device)
+
+        graph = torch.sparse_coo_tensor(
+            index, data, torch.Size([self.n_users, self.n_items]), device=device
+        )
+        return graph
 
     def get_train_batch(self, inter_list, multi_sample=False, k=5):
         inter_list = inter_list.squeeze().tolist()
         pos_item_list = []
         neg_item_list = []
+        is_noisy_list = []
         user_list = np.random.randint(0, self.n_users, len(inter_list))
         if multi_sample:
             for user in user_list:
@@ -158,18 +217,99 @@ class CFDataset(BasicDataset):
                 else:
                     pos_items = np.random.choice(self.train_data[user], k, replace=True)
                 pos_item_list.append(pos_items)
+
+                # multi_sample에서는 pos_items가 여러 개이므로 각 item의 noisy 여부를 기록
+                if hasattr(self, "noisy_pairs"):
+                    noisy_flags = [int((user, item) in self.noisy_pairs) for item in pos_items]
+                else:
+                    noisy_flags = [0] * len(pos_items)
+                is_noisy_list.append(noisy_flags)
+
                 neg_item = random.randint(0, self.n_items-1)
                 while neg_item in self.train_data[user]:
                     neg_item = random.randint(0, self.n_items-1)
                 neg_item_list.append(neg_item)
         else:
             for user in user_list:
-                pos_item_list.append(np.random.choice(self.train_data[user]))
+                pos_item = np.random.choice(self.train_data[user])
+                pos_item_list.append(pos_item)
+
+                # sampled positive가 synthetic noise인지 확인
+                if hasattr(self, "noisy_pairs"):
+                    is_noisy_list.append(int((user, pos_item) in self.noisy_pairs))
+                else:
+                    is_noisy_list.append(0)
+                
                 neg_item = random.randint(0, self.n_items-1)
                 while neg_item in self.train_data[user]:
                     neg_item = random.randint(0, self.n_items-1)
                 neg_item_list.append(neg_item)
-        return user_list, np.array(pos_item_list), np.array(neg_item_list)
+        return user_list, np.array(pos_item_list), np.array(neg_item_list), np.array(is_noisy_list)
+    
+    def get_train_batch_dcf(self, batch_idx_list):
+        """
+        DCF-BPR 전용 batch 생성 함수
+        return:
+            sample_ids, user_list, pos_item_list, neg_item_list, is_noisy_list
+        """
+        if isinstance(batch_idx_list, torch.Tensor):
+            batch_idx_list = batch_idx_list.squeeze().tolist()
+        
+        if isinstance(batch_idx_list, int):
+            batch_idx_list = [batch_idx_list]
+
+        sample_ids = []
+        user_list = []
+        pos_item_list = []
+        neg_item_list = []
+        is_noisy_list = []
+
+        if hasattr(self, "active_pair_mask"):
+            active_ids = np.where(self.active_pair_mask)[0]
+            if len(active_ids) == 0:
+                raise ValueError("No active training pairs available.")
+        
+        for sid in batch_idx_list:
+            sid = int(sid)
+
+            if hasattr(self, "active_pair_mask") and not self.active_pair_mask[sid]:
+                sid = int(np.random.choice(active_ids))
+
+            pair = self.train_pairs[sid]
+            user = pair["user"]
+            pos_item = pair["item"]
+            is_noisy = pair["is_noisy"]
+
+            neg_item = random.randint(0, self.n_items-1)
+            while neg_item in self.train_data[user]:
+                neg_item = random.randint(0, self.n_items-1)
+
+            sample_ids.append(sid)
+            user_list.append(user)
+            pos_item_list.append(pos_item)
+            neg_item_list.append(neg_item)
+            is_noisy_list.append(is_noisy)
+
+        return (
+            torch.tensor(sample_ids, dtype=torch.long),
+            torch.tensor(user_list, dtype=torch.long),
+            torch.tensor(pos_item_list, dtype=torch.long),
+            torch.tensor(neg_item_list, dtype=torch.long),
+            torch.tensor(is_noisy_list, dtype=torch.long)
+        )
+    
+    def mark_as_relabelled(self, relabel_ids):
+        """
+        DCF-BPR setting:
+        noisy positive interaction을 다음 에폭부터 positive pool에서 제외
+        """
+        if not hasattr(self, "active_pair_mask"):
+            return
+        
+        for sid in relabel_ids:
+            sid = int(sid)
+            if 0 <= sid < len(self.active_pair_mask):
+                self.active_pair_mask[sid] = False
 
     def get_val_batch(self, user_list):
         return np.array(user_list), [self.val_data[user] for user in user_list], [self.train_data[user] for user in user_list]
@@ -203,6 +343,37 @@ class CFDataset(BasicDataset):
         deg_inv_sqrt = torch.pow(deg, -0.5)
 
         # edge-wise normalization
+        row, col = index
+        norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
+
+        norm_graph = torch.sparse_coo_tensor(index, norm, torch.Size([N, N])).coalesce()
+        return norm_graph
+    
+    def gcn_graph_dcf(self):
+        user_list = []
+        item_list = []
+
+        for sid, pair in enumerate(self.train_pairs):
+            if hasattr(self, "active_pair_mask") and not self.active_pair_mask[sid]:
+                continue
+            user_list.append(pair["user"])
+            item_list.append(pair["item"])
+
+        user_dim = torch.LongTensor(user_list)
+        item_dim = torch.LongTensor(item_list)
+
+        first_sub = torch.stack([user_dim, item_dim + self.n_users])
+        second_sub = torch.stack([item_dim + self.n_users, user_dim])
+        index = torch.cat([first_sub, second_sub], dim=1)
+        value = torch.ones(index.size(1))
+
+        N = self.n_users + self.n_items
+        graph = torch.sparse_coo_tensor(index, value, torch.Size([N, N]))
+
+        deg = torch.sparse.sum(graph, dim=1).to_dense()
+        deg[deg == 0] = 1
+        deg_inv_sqrt = torch.pow(deg, -0.5)
+
         row, col = index
         norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
 

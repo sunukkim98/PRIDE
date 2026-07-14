@@ -34,7 +34,6 @@ class BasicDataset(Dataset):
         data format:
         User ID; [Item IDs]
         '''
-        # 读取 JSON 文件
         with open(os.path.join(self.path, "data.json"), 'r') as f:
             users = json.load(f)
 
@@ -127,22 +126,21 @@ class CFDataset(BasicDataset):
             return
         for user, interaction in enumerate(self.train_data):
             noisy = int(noise_ratio * (len(interaction)))
-            # TODO: 从 range(0, self.n_items) 随机选取 noisy 个不在 interaction 中的 item，拼接到 interaction 后
             if noisy > 0:
+                # sample `noisy` items not already in the interaction and append them
                 available_items = set(range(self.n_items)) - set(interaction)
                 noisy_items = random.sample(available_items, noisy)
-                
+
                 self.user_noise[user] = noisy_items
                 for item in noisy_items:
                     self.noisy_pairs.add((user, item))
 
-                # 拼接到 interaction 后
                 interaction.extend(noisy_items)
                 self.train_data[user] = interaction
 
     def _build_dcf_train_pairs(self):
         """
-        DCF-BPR용 train pair pool 구성
+        Build the DCF-BPR train pair pool.
         sample_id == self.train_pairs index
         """
         self.train_pairs = []
@@ -218,7 +216,7 @@ class CFDataset(BasicDataset):
                     pos_items = np.random.choice(self.train_data[user], k, replace=True)
                 pos_item_list.append(pos_items)
 
-                # multi_sample에서는 pos_items가 여러 개이므로 각 item의 noisy 여부를 기록
+                # multi_sample yields several pos_items, so record the noisy flag per item
                 if hasattr(self, "noisy_pairs"):
                     noisy_flags = [int((user, item) in self.noisy_pairs) for item in pos_items]
                 else:
@@ -234,7 +232,7 @@ class CFDataset(BasicDataset):
                 pos_item = np.random.choice(self.train_data[user])
                 pos_item_list.append(pos_item)
 
-                # sampled positive가 synthetic noise인지 확인
+                # check whether the sampled positive is synthetic noise
                 if hasattr(self, "noisy_pairs"):
                     is_noisy_list.append(int((user, pos_item) in self.noisy_pairs))
                 else:
@@ -248,7 +246,7 @@ class CFDataset(BasicDataset):
     
     def get_train_batch_dcf(self, batch_idx_list):
         """
-        DCF-BPR 전용 batch 생성 함수
+        Batch generation function dedicated to DCF-BPR.
         return:
             sample_ids, user_list, pos_item_list, neg_item_list, is_noisy_list
         """
@@ -301,7 +299,7 @@ class CFDataset(BasicDataset):
     def mark_as_relabelled(self, relabel_ids):
         """
         DCF-BPR setting:
-        noisy positive interaction을 다음 에폭부터 positive pool에서 제외
+        Exclude noisy positive interactions from the positive pool starting next epoch.
         """
         if not hasattr(self, "active_pair_mask"):
             return
@@ -337,9 +335,9 @@ class CFDataset(BasicDataset):
         N = self.n_users + self.n_items
         graph = torch.sparse_coo_tensor(index, value, torch.Size([N, N]))
 
-        # Degree 계산 (sparse 방식)
+        # compute degree (sparse)
         deg = torch.sparse.sum(graph, dim=1).to_dense()  # [N]
-        deg[deg == 0] = 1  # divide-by-zero 방지
+        deg[deg == 0] = 1  # avoid divide-by-zero
         deg_inv_sqrt = torch.pow(deg, -0.5)
 
         # edge-wise normalization

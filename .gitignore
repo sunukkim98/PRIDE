@@ -12,6 +12,7 @@ __pycache__/
 *.pyo
 .codex
 tea_debug.log
+todo.md
 
 # only ship the 6 canonical (backbone x dataset) PRIDE configs
 config/*

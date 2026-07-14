@@ -26,9 +26,9 @@ import torch.nn as nn
 
 class GraphGenerator_2MLP(nn.Module):
     """
-    2-MLP 구조의 그래프 파라미터 생성기
-    입력: 사용자 및 아이템 임베딩 벡터 (batch_size x emb_size)
-    출력: weight scalar (batch_size x 1)
+    2-MLP graph parameter generator.
+    Input: user and item embedding vectors (batch_size x emb_size)
+    Output: weight scalar (batch_size x 1)
     """
     def __init__(self, emb_size):
         super(GraphGenerator_2MLP, self).__init__()

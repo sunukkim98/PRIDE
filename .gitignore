@@ -4,7 +4,6 @@ log_gabage/
 logs_lgn/
 slurm-trainer/
 checkpoints/
-data/
 analyze/
 weights_hist/
 __pycache__/
@@ -33,3 +32,12 @@ scripts/*
 !scripts/run_pride_lgn_yelp.sh
 !scripts/run_pride_lgn_mind.sh
 !scripts/run_pride_lgn_amazon_book.sh
+
+# only ship data for the 3 evaluated datasets
+data/*
+!data/Amazon-Book/
+!data/Amazon-Book/**
+!data/Yelp/
+!data/Yelp/**
+!data/MIND/
+!data/MIND/**

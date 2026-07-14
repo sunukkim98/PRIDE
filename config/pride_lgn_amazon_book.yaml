@@ -1,14 +1,7 @@
-# ============================================================
-# Ablation: w/o both weights  |  Dataset: Amazon-Book
-# ablation='wo_requiem'  →  both weights fixed to 1 (torch.ones_like)
-#
-# NOTE: lr / weight_decay still need Full model best values.
-#       energy_r / energy_lambda are passed but unused (weight=1 fixed).
-# ============================================================
-project: MF-ABLATION
-program: python3
+project: PRIDE
+program: python
 command:
-  - python3
+  - python
   - main.py
   - --wandb
 method: grid
@@ -16,45 +9,46 @@ metric:
   name: valid_Recall@20
   goal: maximize
 parameters:
-  # --- dataset-specific (Full model best) ---
+  # --- noise sweep ---
+  noise:
+    values: [0.0, 0.1, 0.2, 0.3, 0.4]
+  # --- dataset ---
   dataset:
     values: ['Amazon-Book']
+  # --- best hyperparameters ---
+  lr:
+    values: [0.01]
+  weight_decay:
+    values: [0.00001]
   begin_adv:
-    values: [10]
+    values: [30]
   ema:
     values: [1.0]
   num_codebook:
-    values: [256]
-  lr:
-    values: [0.001]
-  weight_decay:
-    values: [0.001]
+    values: [512]
   energy_r:
-    values: [4]  # NOTE: unused when ablation='wo_requiem' (weight=1 fixed)
+    values: [6]
   energy_lambda:
-    values: [0.5]  # NOTE: unused when ablation='wo_requiem'
+    values: [0.75]
   beta:
-    values: [0.05]
+    values: [1.0]
   drop_rate:
     values: [0.1]
   num_gradual:
-    values: [30000]
-  # --- ablation flag ---
-  ablation:
-    values: ['wo_requiem']
+    values: [20000]
   # --- fixed ---
   model:
-    values: ['MF']
+    values: ['LightGCN']
   method:
     values: ['PRIDE']
   weight_mode:
     values: ['lambda_power']
+  ablation:
+    values: ['full']
   seed:
     values: [2024]
   min_interaction:
     values: [10]
-  noise:
-    values: [0.0]
   add_p:
     values: [1.0]
   out_dim:

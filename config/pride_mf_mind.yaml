@@ -1,4 +1,4 @@
-project: MF-Origin-Noise
+project: PRIDE
 program: python
 command:
   - python
@@ -14,19 +14,37 @@ parameters:
     values: [0.0, 0.1, 0.2, 0.3, 0.4]
   # --- dataset ---
   dataset:
-    values: ['Yelp']
-  # --- best base hyperparameters ---
+    values: ['MIND']
+  # --- best hyperparameters ---
   lr:
     values: [0.001]
   weight_decay:
     values: [0.001]
+  begin_adv:
+    values: [15]
+  ema:
+    values: [0.75]
+  num_codebook:
+    values: [512]
+  energy_r:
+    values: [4]
+  energy_lambda:
+    values: [0.5]
+  beta:
+    values: [0.1]
+  drop_rate:
+    values: [0.2]
+  num_gradual:
+    values: [30000]
   # --- fixed ---
   model:
     values: ['MF']
   method:
-    values: ['Origin']
+    values: ['PRIDE']
+  weight_mode:
+    values: ['lambda_power']
   ablation:
-    values: ['Origin']
+    values: ['full']
   seed:
     values: [2024]
   min_interaction:
@@ -60,20 +78,8 @@ parameters:
     values: [0]
   item_num:
     values: [0]
-  num_codebook:
-    values: [-1]
   num_hirearchy:
-    values: [-1]
-  begin_adv:
-    values: [-1]
-  ema:
-    values: [-1]
-  beta:
-    values: [-1]
-  drop_rate:
-    values: [-1]
-  num_gradual:
-    values: [-1]
+    values: [1]
   alpha:
     values: [0]
   gamma:
@@ -84,23 +90,17 @@ parameters:
     values: [0]
   mean_loss_interval:
     values: [0]
-  weight_mode:
-    values: ['lambda_power']
-  energy_r:
-    values: [0]
-  energy_lambda:
-    values: [0]
   energy_gamma:
-    values: [0]
+    values: [1.0]
   lambda_dis:
-    values: [0]
+    values: [1.0]
   tau:
-    values: [0]
+    values: [1.0]
   weight_eps:
-    values: [0]
+    values: [1.0e-8]
   wgm_alpha:
-    values: [0]
+    values: [0.5]
   lambda_mix:
-    values: [0]
+    values: [0.5]
   gate_tau:
-    values: [0]
+    values: [1.0]

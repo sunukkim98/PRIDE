@@ -1,7 +1,7 @@
-project: LGN-S4-Noise
-program: python3
+project: PRIDE
+program: python
 command:
-  - python3
+  - python
   - main.py
   - --wandb
 method: grid
@@ -14,31 +14,31 @@ parameters:
     values: [0.0, 0.1, 0.2, 0.3, 0.4]
   # --- dataset ---
   dataset:
-    values: ['MIND']
+    values: ['Amazon-Book']
   # --- best hyperparameters ---
   lr:
-    values: [0.01]
+    values: [0.001]
   weight_decay:
-    values: [0.0001]
+    values: [0.001]
   begin_adv:
-    values: [15]
+    values: [10]
   ema:
     values: [1.0]
   num_codebook:
-    values: [512]
+    values: [256]
   energy_r:
-    values: [6]
+    values: [4]
   energy_lambda:
     values: [0.5]
   beta:
-    values: [0.2]
-  drop_rate:
     values: [0.05]
+  drop_rate:
+    values: [0.1]
   num_gradual:
-    values: [20000]
+    values: [30000]
   # --- fixed ---
   model:
-    values: ['LightGCN']
+    values: ['MF']
   method:
     values: ['PRIDE']
   weight_mode:

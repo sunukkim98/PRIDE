@@ -9,7 +9,7 @@ def str2bool(s):
 
 parser = argparse.ArgumentParser(description='RS Models')
 
-parser.add_argument("--project", type=str, default="RISE", help="Project name")
+parser.add_argument("--project", type=str, default="PRIDE", help="Project name")
 parser.add_argument('--seed', type=int, default=2024, help='seed')
 
 parser.add_argument('--model', type=str, default='MF', help='model')

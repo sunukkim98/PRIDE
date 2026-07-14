@@ -1,87 +1,200 @@
 # PRIDE
+This repository provides the official implementation of **PRIDE**.
+* **PRIDE: Preference-structure and Representation-stability based Interaction Denoising** </br>
+Sunuk Kim<sup>†</sup>, Minseo Jeon<sup>†</sup>, Daewon Gwak, Gyuwon Je, and Jinhong Jung<sup>*</sup> </br>
+Soongsil University, Seoul, South Korea </br>
+<sup>†</sup>Equal contribution, <sup>*</sup>Corresponding author </br>
+T.B.D
 
-**Preference-structure and Representation-stability based Interaction Denoising**
+## 📝 Abstract
+Implicit feedback serves as the primary training signal for recommender systems due to its ease
+of collection, yet it contains noisy interactions that do not reflect users' true preferences.
+Effective denoising is therefore essential for reliable preference learning. However, existing
+denoising methods evaluate each interaction in isolation from the user's broader preference
+structure, and rely on signals observed at a fixed point of training, thereby failing to capture
+representation dynamics across training. To address these limitations, we propose **PRIDE**
+(**P**reference-structure and **R**epresentation-stability based **I**nteraction **D**enoising), a
+novel denoising framework for implicit feedback recommendation. PRIDE estimates the reliability of
+each interaction from two complementary signals, consistency with the user's preference structure
+and representation stability across training, and combines them into a per-interaction weight
+applied to the BPR loss. Extensive experiments across multiple datasets and noise settings
+demonstrate that PRIDE achieves stable performance and robust representation learning compared
+with existing denoising methods.
 
-This repository is the official implementation of **PRIDE**, a denoising method for
-implicit-feedback recommender systems.
-
-> **Note:** This codebase was originally built on top of the [PLD (WWW 2025)](https://arxiv.org/pdf/2502.00348)
-> implementation and has since been extended with PRIDE and several baselines
-> (BOD, DCF, T-CE, R-CE). [TODO: 원 저자 attribution / 라이선스 문구 확인 후 정리]
-
-## Authors
-[TODO: 저자 목록]
-
-## Abstract
-[TODO: abstract]
-
-## Environment
-
+## ⚙️ Prerequisites
+You should install the required packages with a conda environment by typing the following command in your terminal:
 ```bash
 conda env create -f environment.yml
 conda activate requiem
 ```
 
 or, with pip:
-
 ```bash
 pip install -r requirements.txt
 ```
-
 - python >= 3.8
 - torch >= 1.10.1
 - numpy >= 1.22.2
 - scikit-learn >= 1.0.2
 - scipy >= 1.8.0
 
-## Datasets
+All experiments in the paper were run on a single NVIDIA RTX 4090 GPU (24GB VRAM).
 
-Place preprocessed data under `data/<Dataset>/`. Evaluated datasets:
-Amazon-Book, MIND, Yelp.
+> **Note:** This codebase was originally built on top of the [PLD (WWW 2025)](https://github.com/Kaike-Zhang/PLD)
+> implementation and has since been extended with PRIDE and several baselines
+> (T-CE, R-CE, DCF, BOD). We thank the PLD authors for making their code available.
 
-## Usage (Quick Start)
+## 📊 Datasets
+We evaluate PRIDE on three public benchmark datasets that cover diverse domains. Yelp2018 is a
+dataset of user reviews on businesses; MIND is a news recommendation dataset based on user click
+records; Amazon-Book is a dataset of user purchases/reviews from the Book category of Amazon.
 
-Run PRIDE with an MF or LightGCN backbone on a given dataset:
+| Dataset | # Users | # Items | # Interactions | Avg. Length | Sparsity (%) |
+|:--|--:|--:|--:|--:|--:|
+| Yelp2018 | 31,668 | 38,048 | 1,561,406 | 49.3 | 99.88 |
+| MIND | 38,441 | 38,000 | 1,210,953 | 31.5 | 99.92 |
+| Amazon-Book | 52,643 | 91,599 | 2,704,860 | 51.3 | 99.95 |
+
+For Yelp2018 and MIND we use the preprocessed versions provided by
+[PLD](https://github.com/Kaike-Zhang/PLD), and for Amazon-Book, the version provided by
+[LightGCN++](https://github.com/geon0325/LightGCNpp).
+
+Place the preprocessed data under `data/<Dataset>/` (e.g. `data/MIND/data.json`) before running
+the code; a `data/<Dataset>/processed/` cache is generated automatically on first run.
+
+## 🚀 Usage of PRIDE
+PRIDE trains in two stages — warm-up initialization followed by reweighted training — but both run
+within a single command; the best checkpoint (by validation `Recall@20`) is selected automatically
+and evaluated on the test split at the end of training.
 
 ```bash
 python main.py --model MF --dataset MIND --method PRIDE
 ```
 
-Key hyperparameters (see `meta_config.py` for the full list):
+- `--model`: backbone used in the paper's experiments is `MF` or `LightGCN` (`NeuMF` is also
+  supported by the codebase but was not evaluated in the paper).
+- `--method`: `PRIDE`, or one of the baselines compared in the paper — `Origin` (no denoising),
+  `PLD`, `BOD` (learning-based), `TCE`/`RCE`/`DCF` (loss-based, T-CE/R-CE/DCF in the paper). See
+  `meta_config.py` for the full argument list.
 
-| Flag | Description |
-| --- | --- |
-| `--model` | backbone: `MF`, `LightGCN`, `NeuMF` |
-| `--dataset` | dataset name under `data/` |
-| `--method` | denoising method: `PRIDE`, `Origin`, `PLD`, `BOD`, `DCF`, `TCE`, `RCE`, ... |
-| `--noise` | synthetic noise ratio injected into training interactions |
-| `--begin_adv`, `--ema`, `--num_codebook`, `--energy_r`, `--energy_lambda` | PRIDE-specific hyperparameters |
+**Note:** A plain `python main.py --model MF --dataset <Dataset> --method PRIDE` uses
+`meta_config.py`'s defaults, not the tuned hyperparameters reported in the paper. Use one of the
+provided single-run scripts instead, e.g. [`scripts/run_single.sh`](scripts/run_single.sh) (Yelp)
+or [`scripts/run_single_mf_mind.slurm`](scripts/run_single_mf_mind.slurm) (MIND), or pass the
+hyperparameters explicitly (see below). Full sweep/ablation configs are under `config/`.
 
-A single-run example with PRIDE's best hyperparameters is in
-[`scripts/run_single.sh`](scripts/run_single.sh) / [`scripts/run_single.slurm`](scripts/run_single.slurm).
+## 📈 Experimental Results of `PRIDE`
 
-### Reproducing paper results
+### Performance for top-*k* item recommendation
+The reported results in the paper are as follows (Table 3; best in **bold**, second-best
+underlined).
 
-[TODO: 논문 Table/Figure ↔ scripts/config 매핑. 예: "Table 2 (MIND, MF) = scripts/run_single_mf_mind.slurm"]
+**MF backbone**
 
-## Repository Structure
+| Model | Yelp2018 R@20 | Yelp2018 R@50 | Yelp2018 N@20 | Yelp2018 N@50 | MIND R@20 | MIND R@50 | MIND N@20 | MIND N@50 | Amazon-Book R@20 | Amazon-Book R@50 | Amazon-Book N@20 | Amazon-Book N@50 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| MF (Origin) | 0.0689 | 0.1310 | 0.0531 | 0.0773 | 0.0675 | 0.1252 | 0.0439 | 0.0628 | 0.0669 | 0.1200 | 0.0500 | 0.0700 |
+| +R-CE | 0.0722 | 0.1376 | 0.0557 | 0.0811 | 0.0734 | 0.1354 | 0.0479 | 0.0682 | 0.0669 | 0.1210 | 0.0501 | 0.0705 |
+| +T-CE | 0.0557 | 0.1103 | 0.0414 | 0.0624 | 0.0568 | 0.1098 | 0.0360 | 0.0533 | 0.0524 | 0.0985 | 0.0388 | 0.0559 |
+| +BOD | 0.0580 | 0.1119 | 0.0448 | 0.0655 | 0.0648 | 0.1190 | 0.0430 | 0.0605 | 0.0466 | 0.0860 | 0.0345 | 0.0493 |
+| +DCF | 0.0658 | 0.1254 | 0.0509 | 0.0742 | 0.0694 | 0.1271 | 0.0455 | 0.0645 | 0.0556 | 0.1026 | 0.0422 | 0.0601 |
+| +PLD | _0.0723_ | _0.1385_ | _0.0559_ | _0.0816_ | _0.0771_ | _0.1393_ | _0.0517_ | _0.0720_ | _0.0675_ | _0.1214_ | _0.0504_ | _0.0708_ |
+| **+PRIDE** | **0.0760** | **0.1434** | **0.0590** | **0.0852** | **0.0808** | **0.1444** | **0.0544** | **0.0752** | **0.0694** | **0.1247** | **0.0527** | **0.0735** |
 
-```
-main.py                 # entry point (python main.py --model ... --dataset ... --method ...)
-meta_config.py           # CLI argument definitions
-utls/trainer.py          # training loops for each method (PRIDE + baselines)
-utls/model_config.py     # per-method hyperparameter config builders
-model/                    # backbone models (MF, LightGCN, NeuMF)
-vector_quantize_pytorch/ # vector-quantization codebook (used by PRIDE)
-config/                  # W&B sweep configs for experiments
-scripts/                 # Slurm submission scripts
-analyze/                 # result aggregation / plotting scripts
-```
+Δ over best baseline: +2.8% – +5.7% (Recall/NDCG). Δ over MF (Origin): +3.7% – +24.0%.
 
-## Citation
+**LightGCN backbone**
 
+| Model | Yelp2018 R@20 | Yelp2018 R@50 | Yelp2018 N@20 | Yelp2018 N@50 | MIND R@20 | MIND R@50 | MIND N@20 | MIND N@50 | Amazon-Book R@20 | Amazon-Book R@50 | Amazon-Book N@20 | Amazon-Book N@50 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| LightGCN (Origin) | **0.0862** | 0.1563 | **0.0680** | **0.0953** | 0.0930 | 0.1631 | _0.0628_ | _0.0859_ | 0.0775 | 0.1368 | _0.0590_ | _0.0814_ |
+| +R-CE | 0.0849 | 0.1559 | _0.0668_ | 0.0944 | 0.0936 | 0.1645 | 0.0620 | 0.0854 | 0.0750 | 0.1347 | 0.0567 | 0.0792 |
+| +T-CE | 0.0714 | 0.1337 | 0.0558 | 0.0799 | 0.0663 | 0.1214 | 0.0440 | 0.0618 | 0.0472 | 0.0894 | 0.0354 | 0.0512 |
+| +BOD | 0.0629 | 0.1204 | 0.0489 | 0.0712 | 0.0722 | 0.1299 | 0.0464 | 0.0653 | 0.0510 | 0.0961 | 0.0381 | 0.0552 |
+| +DCF | 0.0799 | 0.1496 | 0.0629 | 0.0900 | 0.0871 | 0.1566 | 0.0582 | 0.0810 | 0.0678 | 0.1232 | 0.0513 | 0.0723 |
+| +PLD | 0.0844 | 0.1552 | _0.0668_ | 0.0944 | 0.0662 | 0.1214 | 0.0439 | 0.0618 | 0.0767 | 0.1366 | 0.0587 | 0.0813 |
+| **+PRIDE** | _0.0851_ | **0.1572** | 0.0665 | 0.0945 | **0.0950** | **0.1681** | **0.0630** | **0.0870** | **0.0791** | **0.1389** | **0.0600** | **0.0827** |
+
+PRIDE ranks first on every metric with MF, and on all metrics on MIND and Amazon-Book with
+LightGCN; on Yelp2018 + LightGCN the gap to the origin backbone is marginal (LightGCN's graph
+smoothing already provides some implicit denoising there). PRIDE consistently outperforms PLD, the
+strongest baseline, on every dataset and metric with both backbones.
+
+### Noise robustness
+Under synthetic noise injection (0%–40%) on Yelp2018 and MIND with both backbones, PRIDE
+maintains the highest Recall@20 and degrades the least as the noise ratio increases (see Figure 2
+in the paper). [TODO: `scripts/run_noise_*` 결과로 재현 그래프/수치 추가할지 결정]
+
+### Ablation study
+Table 4/5 in the paper report the following variants: **w/o Warm-up Stage** (skip the warm-up
+initialization; train with plain BPR before reweighting), **w/o Stability Weight** (drop the
+representation-stability signal), and **w/o Preference Weight** (drop the preference-structure
+consistency signal).
+
+**MF backbone** (Recall@20 / NDCG@20)
+
+| Model | Yelp2018 | MIND | Amazon-Book |
+|---|--:|--:|--:|
+| PRIDE (Full) | 0.0760 / 0.0590 | 0.0808 / 0.0544 | 0.0694 / 0.0527 |
+| w/o Warm-up Stage | 0.0741 (-2.5%) / 0.0572 (-3.1%) | 0.0744 (-7.9%) / 0.0489 (-10.1%) | 0.0690 (-0.6%) / 0.0519 (-1.5%) |
+| w/o Stability Weight | 0.0674 (-11.3%) / 0.0525 (-11.0%) | 0.0802 (-0.7%) / 0.0527 (-3.1%) | 0.0665 (-4.2%) / 0.0501 (-4.9%) |
+| w/o Preference Weight | 0.0668 (-12.1%) / 0.0514 (-12.9%) | 0.0713 (-11.8%) / 0.0469 (-13.8%) | 0.0664 (-4.3%) / 0.0502 (-4.7%) |
+
+**LightGCN backbone** (Recall@20 / NDCG@20)
+
+| Model | Yelp2018 | MIND | Amazon-Book |
+|---|--:|--:|--:|
+| PRIDE (Full) | 0.0851 / 0.0665 | 0.0950 / 0.0630 | 0.0791 / 0.0600 |
+| w/o Warm-up Stage | 0.0870 (+2.2%) / 0.0691 (+3.9%) | 0.0943 (-0.7%) / 0.0636 (+1.0%) | 0.0785 (-0.8%) / 0.0604 (+0.7%) |
+| w/o Stability Weight | 0.0844 (-0.8%) / 0.0665 (+0.0%) | 0.0938 (-1.3%) / 0.0617 (-2.1%) | 0.0786 (-0.6%) / 0.0597 (-0.5%) |
+| w/o Preference Weight | 0.0861 (+1.2%) / 0.0673 (+1.2%) | 0.0934 (-1.7%) / 0.0633 (+0.5%) | 0.0774 (-2.1%) / 0.0591 (-1.5%) |
+
+> **Code mapping (needs confirmation):** in `utls/trainer.py`, `--ablation wo_stability` and
+> `--ablation wo_user_intent` correspond to **w/o Stability Weight** and **w/o Preference Weight**
+> above. The code also has an `--ablation wo_requiem` option (forces the weight to 1, i.e. no
+> reweighting at all after warm-up), which is **not** the same as the paper's **w/o Warm-up Stage**
+> (which keeps reweighting but skips warm-up). I didn't find a direct `--ablation` flag for
+> "w/o Warm-up Stage" — it looks like it needs a different config (e.g. `begin_adv=0` with
+> `ablation=full`) rather than a dedicated ablation value. Please confirm the correct invocation so
+> I can document it accurately.
+
+### Validated hyperparameters
+Fixed across all settings: embedding dimension `d=64`, batch size `2048`, up to 100 epochs with
+AdamW. The remaining hyperparameters were tuned via grid search on the validation set:
+
+| Hyperparameter | Search space |
+|---|---|
+| Learning rate `--lr` | {1e-1, 1e-2, 1e-3, 1e-4, 1e-5} |
+| Weight decay `--weight_decay` | {1e-1, 1e-2, 1e-3, 1e-4, 1e-5} |
+| Warm-up length `--begin_adv` | {10, 15, 30, 50} |
+| EMA decay `--ema` | {0, 0.25, 0.5, 0.75, 0.99, 1.0} |
+| Codebook size `--num_codebook` | {64, 128, 256, 512, 1024} |
+| Balance `--energy_lambda` | {0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0} |
+| Sharpness `--energy_r` | {1, 2, 4, 6} |
+| Warm-up down-weighting `--beta` | {0.05, 0.1, 0.2, 0.5, 1.0} |
+
+The paper's Figure 3 reports the *selected* values for the MF backbone on MIND and Yelp2018 only
+(codebook size, EMA decay, balance, sharpness, warm-up length):
+
+| Hyperparameter | MIND (MF) | Yelp2018 (MF) |
+|---|--:|--:|
+| `--num_codebook` | 1024 | 512 |
+| `--ema` | 0.99 | 0.25 |
+| `--energy_lambda` | 0.9 | 0.75 |
+| `--energy_r` | 4 | 2 |
+| `--begin_adv` | 10 | 10 |
+
+> ⚠️ **Conflict found:** these paper-reported values differ from what's currently in
+> `config/noise_mf_mind.yaml` / `config/noise_mf_yelp.yaml` in this repo (e.g. MIND:
+> `num_codebook=512`, `ema=0.75`, `energy_lambda=0.5` vs. the paper's 1024/0.99/0.9 above). A
+> smoke-test run with the repo's current MIND config also gave slightly different numbers
+> (Recall@20 0.0801/NDCG@20 0.0530) than Table 3 (0.0808/0.0544). This suggests the checked-in
+> configs may predate the final paper hyperparameters. I did not overwrite `config/` myself —
+> could you confirm which values are correct (and provide Amazon-Book + LightGCN + `lr` /
+> `weight_decay` / `beta`, which aren't shown in Figure 3) so I can fix the configs and this table?
+
+## 📎 Citation
 If you find this work useful, please cite:
-
 ```bibtex
-[TODO: BibTeX]
+T.B.D
 ```

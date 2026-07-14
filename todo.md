@@ -27,6 +27,28 @@
       scripts는 전부 제외 대상 아님으로 판명 — `run_neumf.slurm` 등은 Toys_and_Games/Gowalla를
       포함해 여러 데이터셋을 loop 돌리는 구조라 Amazon-Book/Yelp/MIND도 같이 커버함
       (`sweep_neumf_origin.yaml`도 매 dataset마다 동적으로 덮어쓰는 템플릿이라 유지)
+- [x] README에 논문 제목 반영: "Preference-structure and Representation-stability based
+      Interaction Denoising"
+- [x] `REQUIEM`, `HybridREQUIEM` 완전 제거 — PRIDE(구 MoEWarmupREQUIEM)의 옛 프로토타입이라
+      더 이상 안 씀. `REQUIEMCFTrainer`/`HybridREQUIEMCFTrainer`/`get_REQUIEM_config`/
+      `get_HybridREQUIEM_config` 삭제, README `--method` 표와 attribution note에서도 제거.
+      기존 config/scripts 중 이 두 method를 쓰는 곳 없어서 안전하게 삭제 확인함
+- [x] LICENSE 처리 방향 결정 — PLD 원본 repo(https://github.com/Kaike-Zhang/PLD)에
+      LICENSE 파일이 없음(GitHub API: `license: null`, 즉 all-rights-reserved 상태)을 확인.
+      우리 repo에도 별도 LICENSE 파일을 추가하지 않고, README에 attribution 문구만 남기기로
+      결정 (원본 repo 링크 + 감사 인사로 정리 완료)
+- [x] README를 연구실 이전 논문(AlphaFree) repo 형식에 맞춰 전면 재작성
+      - Datasets 표에 실제 통계 반영 (CFDataset 직접 로드해서 측정: Amazon-Book 52,643 유저/
+        91,599 아이템/2,704,860 상호작용, Yelp 31,668/38,048/1,561,406, MIND 38,441/38,000/1,210,953)
+      - Validated hyperparameters 표에 `config/noise_mf_{dataset}.yaml` 기준 실측 값 반영
+        (3개 데이터셋 모두 확인됨 — lr/weight_decay/begin_adv/ema/num_codebook/energy_r/
+        energy_lambda/beta/drop_rate/num_gradual)
+      - AlphaFree엔 없는 Preprocessing/Inference phase 구분, C++ 컴파일, download.sh, Demo
+        섹션은 우리 repo에 해당 사항이 없어서 제외
+      - Performance 비교 표(baseline 대비 PRIDE 결과)는 `analyze/csv/`에 후보 숫자가 있긴
+        하지만 최종 확정치인지 불확실해서 채우지 않고 TODO로 남김 — 확정되면 채우기
+      - 기존에 있던 "Repository Structure" 커스텀 섹션은 AlphaFree 형식에 없어서 제거함
+        (필요하면 복원 가능)
 
 ## 보류 (이번 라운드에서 손대지 않기로 결정)
 
@@ -35,13 +57,38 @@
 - [ ] tracked 노트북 3개(`prototype.ipynb`, `analyze/ablation_codebook_size.ipynb`,
       `analyze/find_best_score.ipynb`) — 공개 여부/정리 보류
 
+- [x] 실제 논문 PDF를 받아서 README를 진짜 데이터로 완성
+      - 저자(Sunuk Kim, Minseo Jeon 공동1저자, Daewon Gwak, Gyuwon Je, Jinhong Jung 교신), abstract,
+        키워드, 데이터셋 설명(Yelp2018/MIND/Amazon-Book 출처: PLD repo / LightGCN++ repo) 반영
+      - Table 2(데이터 통계)가 내가 직접 측정한 값과 정확히 일치함을 확인 (교차검증 완료)
+      - Table 3(MF/LightGCN 성능 비교, baseline 6개 대비 PRIDE), Table 4/5(ablation),
+        Appendix A(하이퍼파라미터 탐색 범위) 논문에서 그대로 전사해서 채움
+      - 논문 게재 상태가 "Preprint submitted to Elsevier"로, 아직 accept된 저널/DOI 없음 —
+        BibTeX는 확정 전까지 TODO로 유지
+
+## 발견한 문제 — 확인 필요
+
+- [ ] **하이퍼파라미터 불일치**: 논문 Figure 3의 최종 선택값(MIND MF: num_codebook=1024,
+      ema=0.99, energy_lambda=0.9, energy_r=4, begin_adv=10)이 현재 repo의
+      `config/noise_mf_mind.yaml`(512/0.75/0.5/4/15)과 다름. 실제로 repo 현재 config로 스모크런
+      돌렸을 때도 Table 3 수치(0.0808/0.0544)와 살짝 다른 결과(0.0801/0.0530)가 나왔음 — repo
+      config가 논문 최종본보다 예전 버전일 가능성. Amazon-Book/LightGCN 및 lr/weight_decay/beta는
+      Figure 3에 없어서 그마저도 확인 불가. **사용자에게 확정값 확인 요청함**
+- [ ] **ablation 이름 매핑 불확실**: 논문의 "w/o Warm-up Stage"에 대응하는 `--ablation` 플래그가
+      코드에 안 보임. `wo_stability`/`wo_user_intent`는 각각 "w/o Stability Weight"/
+      "w/o Preference Weight"와 매칭되는 걸 코드로 확인했지만, `wo_requiem`(가중치 전부 1로 고정)은
+      "w/o Warm-up Stage"와 다른 개념으로 보임 — **사용자에게 정확한 재현 방법 확인 요청함**
+
 ## 남은 작업
 
-- [ ] README.md의 `[TODO: ...]` 항목 채우기: 논문 제목/저자/abstract/arXiv 링크/BibTeX
-- [ ] LICENSE 파일 추가 — 원본 PLD repo 라이선스 조건 확인 후 attribution 문구와 함께 결정
+- [ ] 위 두 불일치 확인되면 README 하이퍼파라미터 표 + ablation 섹션 수정, 필요시 `config/*.yaml`도
+      논문 최종값으로 업데이트
+- [ ] BibTeX — 저널 accept 후 갱신
+- [ ] 데이터 다운로드/전처리 커맨드 구체화 (PLD repo·LightGCN++ repo에서 어떤 파일을 받아
+      `data/<Dataset>/data.json`으로 만드는지)
+- [ ] Noise robustness 그래프(Figure 2) 재현 여부 결정 — 지금은 텍스트로만 요약
 - [ ] 남은 `scripts/`·`config/` 중 논문 재현에 실제로 쓰이는 것만 추리기 (out-of-scope 데이터셋
-      정리는 완료, 이제부턴 "쓰는 실험 vs 탐색용" 기준으로 정리). README의
-      "Reproducing paper results" 섹션에 Table/Figure ↔ 스크립트 매핑 채우기
+      정리는 완료, 이제부턴 "쓰는 실험 vs 탐색용" 기준으로 정리)
 - [ ] `utls/trainer.py` 분리 검토 (2394줄, 트레이너 클래스 12개 — PRIDE 관련 코드만이라도
       별도 파일로 분리할지)
 - [ ] `config/sweep_grid.yaml`이 깨져있음 — YAML이 아니라 `monitor.py` 소스 코드 내용이 그대로

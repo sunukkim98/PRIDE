@@ -36,56 +36,6 @@ def get_PLD_config(org_config):
         }
     return config
 
-def get_VQ_config(org_config):
-    config = {
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"]
-        }
-    return config
-
-def get_VQQ_config(org_config):
-    config = {
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"]
-        }
-    return config
-
-def get_VQQmui_config(org_config):
-    config = {
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"]
-        }
-    return config
-
-def get_VQQmcs_config(org_config):
-    config = {
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"]
-        }
-    return config
-
-def get_VQQQ_config(org_config):
-    config = {
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"]
-        }
-    return config
-
 def get_BOD_config(org_config):
     config = {
         "device": org_config["device"],
@@ -109,17 +59,6 @@ def get_RCE_config(org_config):
 def get_DCF_config(org_config):
     config = {
         "device": org_config["device"],
-        }
-    return config
-
-def get_WeightedIntentRQ_config(org_config):
-    config = {
-        "device": org_config["device"],
-        "num_codebook": org_config["num_codebook"],
-        "num_hirearchy": org_config["num_hirearchy"],
-        "codebook_dimension": org_config["out_dim"],
-        "begin_adv": org_config["begin_adv"],
-        "ema": org_config["ema"],
         }
     return config
 

@@ -12,3 +12,6 @@ __pycache__/
 *.pyo
 .codex
 tea_debug.log
+
+# out-of-scope dataset configs (evaluated datasets: Amazon-Book, Yelp, MIND)
+*_toys.yaml

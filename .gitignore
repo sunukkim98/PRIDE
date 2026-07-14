@@ -13,6 +13,8 @@ __pycache__/
 .codex
 tea_debug.log
 todo.md
+prototype.ipynb
+requirements.txt
 
 # only ship the 6 canonical (backbone x dataset) PRIDE configs
 config/*

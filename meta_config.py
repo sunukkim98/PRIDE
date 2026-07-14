@@ -45,7 +45,7 @@ parser.add_argument('--method', type=str, default='PRIDE', help='method of denoi
 parser.add_argument('--temp', type=float, default=0.1, help='noise ratio')
 parser.add_argument('--item_num', type=int, default=5, help='max epoch')
 
-# Parameter for REQUIEM
+# Parameter for PRIDE
 parser.add_argument('--num_codebook', type=int, default=512, help='size of codebook')
 parser.add_argument('--num_hirearchy', type=int, default=1, help='number of codebook')
 parser.add_argument('--begin_adv', type=int, default=15, help='warm_up')
@@ -54,26 +54,26 @@ parser.add_argument(
     '--weight_mode',
     type=str,
     default='lambda_power',
-    help='REQUIEM weighting mode: [noise_energy_boltzmann, reliability_boltzmann, disagreement_aware, power_product, weighted_geometric_mean, lambda_power]'
+    help='PRIDE weighting mode: [noise_energy_boltzmann, reliability_boltzmann, disagreement_aware, power_product, weighted_geometric_mean, lambda_power]'
 )
 parser.add_argument('--energy_r', type=float, default=4.0, help='sharpness for lambda_power mode (r > 0)')
 parser.add_argument('--energy_lambda', type=float, default=0.5, help='balance for lambda_power mode: 0=stability only, 1=intent only, range (0,1)')
-parser.add_argument('--energy_gamma', type=float, default=1.0, help='gamma for energy-based REQUIEM weighting (noise_energy_boltzmann / disagreement_aware)')
+parser.add_argument('--energy_gamma', type=float, default=1.0, help='gamma for energy-based PRIDE weighting (noise_energy_boltzmann / disagreement_aware)')
 parser.add_argument('--lambda_dis', type=float, default=1.0, help='disagreement penalty weight for disagreement_aware mode')
 parser.add_argument('--tau', type=float, default=1.0, help='temperature for reliability_boltzmann mode')
 parser.add_argument('--weight_eps', type=float, default=1e-8, help='epsilon for power_product mode')
 parser.add_argument('--wgm_alpha', type=float, default=0.5, help='α for weighted_geometric_mean mode: w = w_intent^α * w_stability^(1-α)')
 parser.add_argument('--lambda_mix', type=float, default=0.5,
-    help='mixing coefficient for REQUIEM full mode: w = s * (λ·c + (1-λ)). '
+    help='mixing coefficient for PRIDE full mode: w = s * (λ·c + (1-λ)). '
          '0=s only, 1=s*c (original), range [0.0, 1.0]')
 
 # Parameter for MoE gate
 parser.add_argument('--gate_tau', type=float, default=1.0, help='temperature for softmin gate routing (lower = sharper target distribution)')
 parser.add_argument(
-    '--use_original_requiem_after_warmup',
+    '--use_original_weighting_after_warmup',
     type=str2bool,
     default=False,
-    help='if true, PRIDE uses the original REQUIEM weighting after warm-up'
+    help='if true, PRIDE uses the original (non-MoE) weighting after warm-up'
 )
 
 # Parameter for R-CE
@@ -93,7 +93,7 @@ parser.add_argument('--co_lambda', type=float, default=0.01, help='coefficient f
 parser.add_argument('--mean_loss_interval', type=int, default=2, help='time step')
 
 # Ablation study
-parser.add_argument('--ablation', type=str, default="full", help='ablation study setting: [full, wo_requiem, wo_user_intent, wo_stability]')
+parser.add_argument('--ablation', type=str, default="full", help='ablation study setting: [full, wo_pride, wo_user_intent, wo_stability]')
 
 # Logging
 parser.add_argument("--wandb", action="store_true", help="Use W&B logging.")

@@ -1011,7 +1011,7 @@ class PRIDECFTrainer(BasicTrainer):
         self._create_dataset(f"data/{trainer_config['dataset']}")
         self._create_dataloader()
 
-        # Main model (REQUIEM stage)
+        # Main model (PRIDE stage)
         self._create_model()
         self._create_opt()
 
@@ -1022,7 +1022,7 @@ class PRIDECFTrainer(BasicTrainer):
         # Device
         self.device = self.config["device"]
 
-        # ---- REQUIEM config ----
+        # ---- PRIDE config ----
         self.num_codebook = self.config["model_config"]["denoise_config"]["num_codebook"]
         self.codebook = ResidualVQ(
             dim=self.config["out_dim"],
@@ -1033,7 +1033,7 @@ class PRIDECFTrainer(BasicTrainer):
         self.begin_adv = self.config["model_config"]["denoise_config"]["begin_adv"]
         self.user_interact_history = self.dataset.get_interaction_matrix(self.device)
         self.prev_centroids = []
-        # [Changed] REQUIEM weighting config
+        # PRIDE weighting config
         self.weight_mode = self.config.get("weight_mode", "noise_energy_boltzmann")
         self.energy_alpha = self.config.get("energy_alpha", 1.0)
         self.energy_beta = self.config.get("energy_beta", 1.0)
@@ -1198,7 +1198,7 @@ class PRIDECFTrainer(BasicTrainer):
             all_items = None
             return users_emb, pos_items_emb, neg_items_emb, pos_logits, neg_logits, l2_norm_sq, all_items
 
-        # assume forward_vq exists for REQUIEM-style code
+        # assume forward_vq exists for PRIDE-style code
         users_emb, pos_items_emb, neg_items_emb, l2_norm_sq, all_items = model.forward_vq(
             user_id_list, pos_item_list, neg_item_list
         )
@@ -1390,7 +1390,7 @@ class PRIDECFTrainer(BasicTrainer):
         item_param.copy_(it)
 
     # =========================
-    # REQUIEM phase helpers
+    # PRIDE phase helpers
     # =========================
     @torch.no_grad()
     def save_previous_codebooks(self):
@@ -1402,7 +1402,7 @@ class PRIDECFTrainer(BasicTrainer):
         _ = self.codebook(all_items)  # EMA update with all items (advances codebook to "curr")
         self._log_codebook_reinit()
 
-    def _validate_requiem_config(self):
+    def _validate_pride_config(self):
         valid_modes = {
             "noise_energy_boltzmann",
             "reliability_boltzmann",
@@ -1410,7 +1410,7 @@ class PRIDECFTrainer(BasicTrainer):
             "power_product",
             "lambda_power",
         }
-        valid_ablations = {"full", "wo_requiem", "wo_user_intent", "wo_stability"}
+        valid_ablations = {"full", "wo_pride", "wo_user_intent", "wo_stability"}
 
         if self.weight_mode not in valid_modes:
             raise ValueError(f"Invalid weight_mode: {self.weight_mode}. Expected one of {sorted(valid_modes)}")
@@ -1421,7 +1421,7 @@ class PRIDECFTrainer(BasicTrainer):
         if self.weight_eps <= 0:
             raise ValueError(f"weight_eps must be > 0, got {self.weight_eps}")
 
-    def _compute_requiem_signals(self, all_items, user_id_list, pos_item_list, pos_items_emb):
+    def _compute_pride_signals(self, all_items, user_id_list, pos_item_list, pos_items_emb):
         # Use codebook in eval mode: get assignments without triggering another EMA update.
         # self.codebook has already been advanced by save_previous_codebooks (curr state).
         was_training = self.codebook.training
@@ -1460,7 +1460,7 @@ class PRIDECFTrainer(BasicTrainer):
         s_tilde = cluster_stability.clamp(0.0, 1.0)
         return s_tilde, c_tilde
 
-    def _build_requiem_terms(self, s_tilde, c_tilde):
+    def _build_pride_terms(self, s_tilde, c_tilde):
         alpha = self.energy_alpha
         beta = self.energy_beta
 
@@ -1487,8 +1487,8 @@ class PRIDECFTrainer(BasicTrainer):
             }
         raise ValueError(f"Invalid ablation option: {self.ablation}")
 
-    def _compute_requiem_weight(self, s_tilde, c_tilde, return_components=False):
-        if self.ablation == "wo_requiem":
+    def _compute_pride_weight(self, s_tilde, c_tilde, return_components=False):
+        if self.ablation == "wo_pride":
             w = torch.ones_like(c_tilde)
             if return_components:
                 return w, {}
@@ -1496,7 +1496,7 @@ class PRIDECFTrainer(BasicTrainer):
 
         gamma = self.energy_gamma
         eps = self.weight_eps
-        terms = self._build_requiem_terms(s_tilde, c_tilde)
+        terms = self._build_pride_terms(s_tilde, c_tilde)
 
         if self.weight_mode == "noise_energy_boltzmann":
             energy = terms["s_term"] + terms["c_term"]
@@ -1558,19 +1558,19 @@ class PRIDECFTrainer(BasicTrainer):
 
         raise ValueError(f"Invalid weight_mode: {self.weight_mode}")
 
-    def _requiem_weights(self, all_items, user_id_list, pos_item_list, pos_items_emb):
+    def _pride_weights(self, all_items, user_id_list, pos_item_list, pos_items_emb):
         """
-        Compute REQUIEM weight for each (u, pos_i).
+        Compute PRIDE weight for each (u, pos_i).
         """
-        # safety: first requiem step needs prev_centroids
+        # safety: first PRIDE step needs prev_centroids
         if len(self.prev_centroids) == 0:
             self.save_previous_codebooks()
-        self._validate_requiem_config()
-        s_tilde, c_tilde = self._compute_requiem_signals(all_items, user_id_list, pos_item_list, pos_items_emb)
-        w = self._compute_requiem_weight(s_tilde, c_tilde)
+        self._validate_pride_config()
+        s_tilde, c_tilde = self._compute_pride_signals(all_items, user_id_list, pos_item_list, pos_items_emb)
+        w = self._compute_pride_weight(s_tilde, c_tilde)
         return w.detach()
 
-    def _train_requiem_step(self, user_id_list, pos_item_list, neg_item_list):
+    def _train_pride_step(self, user_id_list, pos_item_list, neg_item_list):
         self.model.train()
         self.opt.zero_grad()
 
@@ -1578,21 +1578,21 @@ class PRIDECFTrainer(BasicTrainer):
             self.model, user_id_list, pos_item_list, neg_item_list
         )
 
-        # REQUIEM weights
+        # PRIDE weights
         if all_items is None:
             # NeuMF path: need item embedding table for VQ (fallback)
             all_items = self.model.get_all_item_emb()
 
         if len(self.prev_centroids) == 0:
             self.save_previous_codebooks()
-        self._validate_requiem_config()
-        s_tilde, c_tilde = self._compute_requiem_signals(all_items, user_id_list, pos_item_list, pi)
+        self._validate_pride_config()
+        s_tilde, c_tilde = self._compute_pride_signals(all_items, user_id_list, pos_item_list, pi)
         if self.weight_mode == "lambda_power":
-            w, comps = self._compute_requiem_weight(s_tilde, c_tilde, return_components=True)
+            w, comps = self._compute_pride_weight(s_tilde, c_tilde, return_components=True)
             w = w.detach()
             comps = {k: v.cpu() for k, v in comps.items()}
         else:
-            w = self._compute_requiem_weight(s_tilde, c_tilde).detach()
+            w = self._compute_pride_weight(s_tilde, c_tilde).detach()
             comps = None
 
         loss = (self._rec_loss(pos_logits, neg_logits) * w).mean() + self.config["weight_decay"] * l2_norm_sq
@@ -1619,7 +1619,7 @@ class PRIDECFTrainer(BasicTrainer):
         sum_gate = 0.0
         sum_rq = 0.0
 
-        # buffers for REQUIEM signal logging
+        # buffers for PRIDE signal logging
         _s_buf, _c_buf, _w_buf, _noisy_buf, _comp_bufs = [], [], [], [], []
 
         for batch_data in self.dataloader:
@@ -1638,8 +1638,8 @@ class PRIDECFTrainer(BasicTrainer):
                 self.save_previous_codebooks()
                 self._moe_initialized = True
 
-            # ---- REQUIEM: selected expert ----
-            l, s_cpu, c_cpu, w_cpu, comps_cpu = self._train_requiem_step(user_id_list, pos_item_list, neg_item_list)
+            # ---- PRIDE: selected expert ----
+            l, s_cpu, c_cpu, w_cpu, comps_cpu = self._train_pride_step(user_id_list, pos_item_list, neg_item_list)
             sum_rq += l
             _s_buf.append(s_cpu)
             _c_buf.append(c_cpu)
@@ -1671,7 +1671,7 @@ class PRIDECFTrainer(BasicTrainer):
                     {k: torch.cat([d[k] for d in _comp_bufs]) for k in _comp_bufs[0]}
                     if _comp_bufs else None
                 )
-                self._save_requiem_signals(
+                self._save_pride_signals(
                     epoch,
                     torch.cat(_s_buf),
                     torch.cat(_c_buf),
@@ -2051,7 +2051,7 @@ class PRIDECFTrainer(BasicTrainer):
             f"UserGatePred     O={mean_w[0]:.3f} R={mean_w[1]:.3f} T={mean_w[2]:.3f}"
         )
 
-    def _save_requiem_signals(self, epoch, s_all, c_all, w_all, noisy_all, comps_all=None):
+    def _save_pride_signals(self, epoch, s_all, c_all, w_all, noisy_all, comps_all=None):
         """
         에폭 단위로 s_tilde / c_tilde / w / is_noisy 를 디스크에 저장.
         lambda_power mode일 때는 comps_all(s_pow, c_pow, w_raw)도 함께 저장.

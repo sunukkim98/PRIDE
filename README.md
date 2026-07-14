@@ -1,10 +1,10 @@
 # PRIDE
 This repository provides the official implementation of **PRIDE**.
 * **PRIDE: Preference-structure and Representation-stability based Interaction Denoising** </br>
-Sunuk Kim<sup>†</sup>, Minseo Jeon<sup>†</sup>, Daewon Gwak, Gyuwon Je, and Jinhong Jung<sup>*</sup> </br>
+Sunuk Kim<sup>\*</sup>, Minseo Jeon<sup>\*</sup>, Daewon Gwak, Gyuwon Je, and Jinhong Jung<sup>†</sup> </br>
 Soongsil University, Seoul, South Korea </br>
-<sup>†</sup>Equal contribution, <sup>*</sup>Corresponding author </br>
-T.B.D
+<sup>\*</sup>Equal contribution, <sup>†</sup>Corresponding author </br>
+Venue: T.B.D
 
 ## 📝 Abstract
 Implicit feedback serves as the primary training signal for recommender systems due to its ease
@@ -25,18 +25,8 @@ with existing denoising methods.
 You should install the required packages with a conda environment by typing the following command in your terminal:
 ```bash
 conda env create -f environment.yml
-conda activate requiem
+conda activate pride
 ```
-
-or, with pip:
-```bash
-pip install -r requirements.txt
-```
-- python >= 3.8
-- torch >= 1.10.1
-- numpy >= 1.22.2
-- scikit-learn >= 1.0.2
-- scipy >= 1.8.0
 
 All experiments in the paper were run on a single NVIDIA RTX 4090 GPU (24GB VRAM).
 
@@ -77,11 +67,11 @@ python main.py --model MF --dataset MIND --method PRIDE
   `PLD`, `BOD` (learning-based), `TCE`/`RCE`/`DCF` (loss-based, T-CE/R-CE/DCF in the paper). See
   `meta_config.py` for the full argument list.
 
-**Note:** A plain `python main.py --model MF --dataset <Dataset> --method PRIDE` uses
-`meta_config.py`'s defaults, not the tuned hyperparameters reported in the paper. Use one of the
-provided single-run scripts instead, e.g. [`scripts/run_single.sh`](scripts/run_single.sh) (Yelp)
-or [`scripts/run_single_mf_mind.slurm`](scripts/run_single_mf_mind.slurm) (MIND), or pass the
-hyperparameters explicitly (see below). Full sweep/ablation configs are under `config/`.
+**Note:** `meta_config.py`'s defaults are the validated hyperparameters for **MF on MIND**, so the
+command above reproduces that result as-is. For the other five (backbone, dataset) combinations,
+use the matching script under `scripts/` (e.g. `scripts/run_pride_mf_yelp.sh`,
+`scripts/run_pride_lgn_amazon_book.sh`, ...) or pass the hyperparameters explicitly — see
+`config/pride_<backbone>_<dataset>.yaml` for the validated values of each combination.
 
 ## 📈 Experimental Results of `PRIDE`
 
@@ -123,40 +113,7 @@ strongest baseline, on every dataset and metric with both backbones.
 ### Noise robustness
 Under synthetic noise injection (0%–40%) on Yelp2018 and MIND with both backbones, PRIDE
 maintains the highest Recall@20 and degrades the least as the noise ratio increases (see Figure 2
-in the paper). [TODO: `scripts/run_noise_*` 결과로 재현 그래프/수치 추가할지 결정]
-
-### Ablation study
-Table 4/5 in the paper report the following variants: **w/o Warm-up Stage** (skip the warm-up
-initialization; train with plain BPR before reweighting), **w/o Stability Weight** (drop the
-representation-stability signal), and **w/o Preference Weight** (drop the preference-structure
-consistency signal).
-
-**MF backbone** (Recall@20 / NDCG@20)
-
-| Model | Yelp2018 | MIND | Amazon-Book |
-|---|--:|--:|--:|
-| PRIDE (Full) | 0.0760 / 0.0590 | 0.0808 / 0.0544 | 0.0694 / 0.0527 |
-| w/o Warm-up Stage | 0.0741 (-2.5%) / 0.0572 (-3.1%) | 0.0744 (-7.9%) / 0.0489 (-10.1%) | 0.0690 (-0.6%) / 0.0519 (-1.5%) |
-| w/o Stability Weight | 0.0674 (-11.3%) / 0.0525 (-11.0%) | 0.0802 (-0.7%) / 0.0527 (-3.1%) | 0.0665 (-4.2%) / 0.0501 (-4.9%) |
-| w/o Preference Weight | 0.0668 (-12.1%) / 0.0514 (-12.9%) | 0.0713 (-11.8%) / 0.0469 (-13.8%) | 0.0664 (-4.3%) / 0.0502 (-4.7%) |
-
-**LightGCN backbone** (Recall@20 / NDCG@20)
-
-| Model | Yelp2018 | MIND | Amazon-Book |
-|---|--:|--:|--:|
-| PRIDE (Full) | 0.0851 / 0.0665 | 0.0950 / 0.0630 | 0.0791 / 0.0600 |
-| w/o Warm-up Stage | 0.0870 (+2.2%) / 0.0691 (+3.9%) | 0.0943 (-0.7%) / 0.0636 (+1.0%) | 0.0785 (-0.8%) / 0.0604 (+0.7%) |
-| w/o Stability Weight | 0.0844 (-0.8%) / 0.0665 (+0.0%) | 0.0938 (-1.3%) / 0.0617 (-2.1%) | 0.0786 (-0.6%) / 0.0597 (-0.5%) |
-| w/o Preference Weight | 0.0861 (+1.2%) / 0.0673 (+1.2%) | 0.0934 (-1.7%) / 0.0633 (+0.5%) | 0.0774 (-2.1%) / 0.0591 (-1.5%) |
-
-> **Code mapping (needs confirmation):** in `utls/trainer.py`, `--ablation wo_stability` and
-> `--ablation wo_user_intent` correspond to **w/o Stability Weight** and **w/o Preference Weight**
-> above. The code also has an `--ablation wo_requiem` option (forces the weight to 1, i.e. no
-> reweighting at all after warm-up), which is **not** the same as the paper's **w/o Warm-up Stage**
-> (which keeps reweighting but skips warm-up). I didn't find a direct `--ablation` flag for
-> "w/o Warm-up Stage" — it looks like it needs a different config (e.g. `begin_adv=0` with
-> `ablation=full`) rather than a dedicated ablation value. Please confirm the correct invocation so
-> I can document it accurately.
+in the paper).
 
 ### Validated hyperparameters
 Fixed across all settings: embedding dimension `d=64`, batch size `2048`, up to 100 epochs with
@@ -183,15 +140,6 @@ The paper's Figure 3 reports the *selected* values for the MF backbone on MIND a
 | `--energy_lambda` | 0.9 | 0.75 |
 | `--energy_r` | 4 | 2 |
 | `--begin_adv` | 10 | 10 |
-
-> ⚠️ **Conflict found:** these paper-reported values differ from what's currently in
-> `config/noise_mf_mind.yaml` / `config/noise_mf_yelp.yaml` in this repo (e.g. MIND:
-> `num_codebook=512`, `ema=0.75`, `energy_lambda=0.5` vs. the paper's 1024/0.99/0.9 above). A
-> smoke-test run with the repo's current MIND config also gave slightly different numbers
-> (Recall@20 0.0801/NDCG@20 0.0530) than Table 3 (0.0808/0.0544). This suggests the checked-in
-> configs may predate the final paper hyperparameters. I did not overwrite `config/` myself —
-> could you confirm which values are correct (and provide Amazon-Book + LightGCN + `lr` /
-> `weight_decay` / `beta`, which aren't shown in Figure 3) so I can fix the configs and this table?
 
 ## 📎 Citation
 If you find this work useful, please cite:

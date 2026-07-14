@@ -46,15 +46,15 @@ parser.add_argument('--temp', type=float, default=0.1, help='noise ratio')
 parser.add_argument('--item_num', type=int, default=5, help='max epoch')
 
 # Parameter for REQUIEM
-parser.add_argument('--num_codebook', type=int, default=256, help='size of codebook')
+parser.add_argument('--num_codebook', type=int, default=512, help='size of codebook')
 parser.add_argument('--num_hirearchy', type=int, default=1, help='number of codebook')
-parser.add_argument('--begin_adv', type=int, default=10, help='warm_up')
-parser.add_argument('--ema', type=float, default=0.99, help='ema')
+parser.add_argument('--begin_adv', type=int, default=15, help='warm_up')
+parser.add_argument('--ema', type=float, default=0.75, help='ema')
 parser.add_argument(
     '--weight_mode',
     type=str,
-    default='noise_energy_boltzmann',
-    help='REQUIEM weighting mode: [noise_energy_boltzmann, reliability_boltzmann, disagreement_aware, power_product, weighted_geometric_mean]'
+    default='lambda_power',
+    help='REQUIEM weighting mode: [noise_energy_boltzmann, reliability_boltzmann, disagreement_aware, power_product, weighted_geometric_mean, lambda_power]'
 )
 parser.add_argument('--energy_r', type=float, default=4.0, help='sharpness for lambda_power mode (r > 0)')
 parser.add_argument('--energy_lambda', type=float, default=0.5, help='balance for lambda_power mode: 0=stability only, 1=intent only, range (0,1)')
@@ -77,11 +77,11 @@ parser.add_argument(
 )
 
 # Parameter for R-CE
-parser.add_argument('--beta', type=float, default=0.3, help='beta for r-ce weighting')
+parser.add_argument('--beta', type=float, default=0.1, help='beta for r-ce weighting')
 
 # Parameter for T-CE
 parser.add_argument('--drop_rate', type=float, default=0.2, help='drop rate for t-ce')
-parser.add_argument('--num_gradual', type=int, default=10000, help='number of gradual')
+parser.add_argument('--num_gradual', type=int, default=30000, help='number of gradual')
 
 # Parameter for BOD
 parser.add_argument('--alpha', type=float, default=1.0, help='alpha for BOD')

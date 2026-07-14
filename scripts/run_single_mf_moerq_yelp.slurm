@@ -9,7 +9,7 @@ LOG_DIR="./log/slurm"
 mkdir -p "$LOG_DIR"
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate requiem
+conda activate pride
 
 SWEEP_OUTPUT=$(wandb sweep ./config/single_mf_moerq_yelp.yaml 2>&1)
 SWEEP_ID=$(echo "$SWEEP_OUTPUT" | awk '/wandb agent/ {print $NF}')
@@ -25,7 +25,7 @@ JOBID=$(sbatch --parsable --wait \
   --ntasks=1 \
   --cpus-per-task=1 \
   --mem=4G \
-  --wrap="source \"\$(conda info --base)/etc/profile.d/conda.sh\" && conda activate requiem && wandb agent $SWEEP_ID"
+  --wrap="source \"\$(conda info --base)/etc/profile.d/conda.sh\" && conda activate pride && wandb agent $SWEEP_ID"
 )
 
 echo "Done. (JobID=$JOBID)"

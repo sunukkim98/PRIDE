@@ -16,7 +16,7 @@ mkdir -p ./log/slurm
 cd "$SLURM_SUBMIT_DIR"
 
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate requiem
+conda activate pride
 
 python main.py \
   --model            MF \

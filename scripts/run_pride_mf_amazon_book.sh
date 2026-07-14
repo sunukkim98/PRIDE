@@ -1,27 +1,16 @@
-#!/bin/bash
-#SBATCH --job-name=mf-moe-mind
-#SBATCH --output=./log/slurm/mf_moe_mind_%j.out
-#SBATCH --error=./log/slurm/mf_moe_mind_%j.err
-#SBATCH --gres=gpu:1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#!/usr/bin/env bash
+# Single-run script: MF / Amazon-Book / PRIDE (validated hyperparameters)
+# Usage: bash scripts/run_pride_mf_amazon_book.sh [GPU_ID]
 
-export WANDB_DIR=./log
-export LOG_DISABLE=1
-export TQDM_DISABLE=1
+GPU_ID=${1:-0}
 
-mkdir -p ./log/slurm
-
-cd "$SLURM_SUBMIT_DIR"
-
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate pride
+cd "$(dirname "$0")/.."
 
 python main.py \
   --model            MF \
-  --dataset          MIND \
+  --dataset          Amazon-Book \
   --method           PRIDE \
+  --device_id        "$GPU_ID" \
   --seed             2024 \
   --n_epochs         100 \
   --patience         100 \
@@ -35,9 +24,9 @@ python main.py \
   --min_interaction  10 \
   --noise            0 \
   --add_p            1 \
-  --begin_adv        15 \
-  --ema              0.75 \
-  --num_codebook     512 \
+  --begin_adv        10 \
+  --ema              1.0 \
+  --num_codebook     256 \
   --num_hirearchy    1 \
   --weight_mode      lambda_power \
   --energy_r         4 \
@@ -49,8 +38,8 @@ python main.py \
   --wgm_alpha        0.5 \
   --lambda_mix       0.5 \
   --ablation         full \
-  --beta             0.1 \
-  --drop_rate        0.2 \
+  --beta             0.05 \
+  --drop_rate        0.1 \
   --num_gradual      30000 \
   --gate_tau         1 \
   --alpha            0 \

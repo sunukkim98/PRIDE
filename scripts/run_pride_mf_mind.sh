@@ -1,27 +1,16 @@
-#!/bin/bash
-#SBATCH --job-name=mf-moe-mind
-#SBATCH --output=./log/slurm/mf_moe_mind_%j.out
-#SBATCH --error=./log/slurm/mf_moe_mind_%j.err
-#SBATCH --gres=gpu:1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
+#!/usr/bin/env bash
+# Single-run script: MF / MIND / PRIDE (validated hyperparameters)
+# Usage: bash scripts/run_pride_mf_mind.sh [GPU_ID]
 
-export WANDB_DIR=./log
-export LOG_DISABLE=1
-export TQDM_DISABLE=1
+GPU_ID=${1:-0}
 
-mkdir -p ./log/slurm
-
-cd "$SLURM_SUBMIT_DIR"
-
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate pride
+cd "$(dirname "$0")/.."
 
 python main.py \
   --model            MF \
   --dataset          MIND \
   --method           PRIDE \
+  --device_id        "$GPU_ID" \
   --seed             2024 \
   --n_epochs         100 \
   --patience         100 \

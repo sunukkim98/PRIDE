@@ -1,4 +1,4 @@
-name: requiem
+name: pride
 channels:
   - conda-forge
   - defaults
@@ -137,4 +137,3 @@ dependencies:
       - tzdata==2025.3
       - urllib3==2.5.0
       - wandb==0.22.2
-prefix: /home/sunuk/miniconda3/envs/requiem

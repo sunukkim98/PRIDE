@@ -68,25 +68,19 @@
 
 ## 발견한 문제 — 확인 필요
 
-- [ ] **하이퍼파라미터 불일치**: 논문 Figure 3의 최종 선택값(MIND MF: num_codebook=1024,
-      ema=0.99, energy_lambda=0.9, energy_r=4, begin_adv=10)이 현재 repo의
-      `config/noise_mf_mind.yaml`(512/0.75/0.5/4/15)과 다름. 실제로 repo 현재 config로 스모크런
-      돌렸을 때도 Table 3 수치(0.0808/0.0544)와 살짝 다른 결과(0.0801/0.0530)가 나왔음 — repo
-      config가 논문 최종본보다 예전 버전일 가능성. Amazon-Book/LightGCN 및 lr/weight_decay/beta는
-      Figure 3에 없어서 그마저도 확인 불가. **사용자에게 확정값 확인 요청함**
-- [ ] **ablation 이름 매핑 불확실**: 논문의 "w/o Warm-up Stage"에 대응하는 `--ablation` 플래그가
-      코드에 안 보임. `wo_stability`/`wo_user_intent`는 각각 "w/o Stability Weight"/
-      "w/o Preference Weight"와 매칭되는 걸 코드로 확인했지만, `wo_requiem`(가중치 전부 1로 고정)은
-      "w/o Warm-up Stage"와 다른 개념으로 보임 — **사용자에게 정확한 재현 방법 확인 요청함**
+- [x] ~~하이퍼파라미터 불일치~~ → 논문 Figure 3 선택값(MIND MF: num_codebook=1024/ema=0.99/
+      energy_lambda=0.9/begin_adv=10)이 repo config(512/0.75/0.5/15)와 다른 걸 발견해서 물어봤으나,
+      사용자가 "무시하고 README에서 해당 경고 문구 삭제"로 결정함. repo config 자체는 그대로 두고
+      README엔 더 이상 이 불일치를 언급하지 않음 (Figure 3 선택값 표 자체는 논문 그대로 유지)
+- [x] ~~ablation 이름 매핑 불확실~~ → README에서 Ablation study 섹션 자체를 삭제하기로 결정해서
+      해소됨 (사용자 요청). 코드상 `wo_requiem` vs 논문의 "w/o Warm-up Stage" 매핑 문제는 README엔
+      더 이상 안 나오지만, 실제 재현 스크립트 작성 시엔 여전히 유효한 질문으로 남아있음
 
 ## 남은 작업
 
-- [ ] 위 두 불일치 확인되면 README 하이퍼파라미터 표 + ablation 섹션 수정, 필요시 `config/*.yaml`도
-      논문 최종값으로 업데이트
 - [ ] BibTeX — 저널 accept 후 갱신
 - [ ] 데이터 다운로드/전처리 커맨드 구체화 (PLD repo·LightGCN++ repo에서 어떤 파일을 받아
       `data/<Dataset>/data.json`으로 만드는지)
-- [ ] Noise robustness 그래프(Figure 2) 재현 여부 결정 — 지금은 텍스트로만 요약
 - [ ] 남은 `scripts/`·`config/` 중 논문 재현에 실제로 쓰이는 것만 추리기 (out-of-scope 데이터셋
       정리는 완료, 이제부턴 "쓰는 실험 vs 탐색용" 기준으로 정리)
 - [ ] `utls/trainer.py` 분리 검토 (2394줄, 트레이너 클래스 12개 — PRIDE 관련 코드만이라도

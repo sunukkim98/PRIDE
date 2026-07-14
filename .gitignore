@@ -21,3 +21,12 @@ config/*
 !config/pride_lgn_yelp.yaml
 !config/pride_lgn_mind.yaml
 !config/pride_lgn_amazon_book.yaml
+
+# only ship the 6 matching single-run scripts
+scripts/*
+!scripts/run_pride_mf_yelp.sh
+!scripts/run_pride_mf_mind.sh
+!scripts/run_pride_mf_amazon_book.sh
+!scripts/run_pride_lgn_yelp.sh
+!scripts/run_pride_lgn_mind.sh
+!scripts/run_pride_lgn_amazon_book.sh

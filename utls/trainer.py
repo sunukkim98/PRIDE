@@ -454,10 +454,10 @@ class TCECFTrainer(CFTrainer):
             return self.drop_rate
 
     def _rec_loss(self, pos_scores, neg_scores):
-        # 1) 기본 BPR 형태 손실
+        # 1) base BPR-style loss
         raw_loss = F.softplus(neg_scores - pos_scores)  # shape: (batch,)
 
-        # 2) 현재 드롭율 t 적용
+        # 2) apply the current drop rate t
         t = self.drop_rate_schedule(self.count)
         self.count += 1
 
@@ -503,10 +503,10 @@ class RCECFTrainer(CFTrainer):
 
     def loss_function_bpr(self, pos_scores, neg_scores):
         """
-        pos_scores, neg_scores: 모델이 출력한 우선순위(logit) 벡터
-        beta: 조절 파라미터 (여기선 0.2)
+        pos_scores, neg_scores: priority (logit) vectors output by the model.
+        beta: weighting strength parameter.
         """
-        # 1) BPR 근사 손실: softplus(neg - pos) == log(1 + exp(neg - pos))
+        # 1) BPR approximate loss: softplus(neg - pos) == log(1 + exp(neg - pos))
         raw_loss = F.softplus(neg_scores - pos_scores)      # shape (batch,)
 
         # 2) confidence p = sigmoid(pos - neg).detach()
@@ -515,7 +515,7 @@ class RCECFTrainer(CFTrainer):
         # 3) R-CE weight
         weight = p.pow(self.beta)  # shape (batch,)
 
-        # 4) 최종 손실
+        # 4) final loss
         return raw_loss * weight
        
     
@@ -666,7 +666,7 @@ class DCFCFTrainer(CFTrainer):
 
     def _current_relabel_ratio(self, epoch: int):
         """
-        DCF의 progressive relabel schedule
+        DCF's progressive relabel schedule.
         r_i = min(i * R / O, R)
         """
         O = max(1, self.max_relabel_epoch)
@@ -676,8 +676,8 @@ class DCFCFTrainer(CFTrainer):
 
     def _apply_progressive_relabel(self, epoch: int):
         """
-        BPR setting에서 relabel의 해석:
-        noisy positive interaction을 다음 에폭부터 positive pool에서 제외
+        Interpretation of relabeling in the BPR setting:
+        exclude noisy positive interactions from the positive pool starting the next epoch.
         """
         if len(self.sample_lower_bounds) == 0:
             return
@@ -685,8 +685,8 @@ class DCFCFTrainer(CFTrainer):
         current_ratio = self._current_relabel_ratio(epoch)
         if current_ratio <= 0:
             return
-        
-        # lower bound 큰 순서 = noisy candidate
+
+        # sort by descending lower bound -> noisy candidates first
         sorted_items = [
             (sid, lb) for sid, lb in self.sample_lower_bounds.items()
             if not hasattr(self.dataset, "active_pair_mask") or self.dataset.active_pair_mask[sid]
@@ -697,10 +697,10 @@ class DCFCFTrainer(CFTrainer):
         k = int(len(sorted_items) * current_ratio)
         if k <= 0:
             return
-        
+
         relabel_ids = [sid for sid, _ in sorted_items[:k]]
 
-        # dataset 쪽에 구현 필요
+        # requires the dataset to implement this
         if hasattr(self.dataset, "mark_as_relabelled"):
             self.dataset.mark_as_relabelled(relabel_ids)
 
@@ -721,7 +721,7 @@ class DCFCFTrainer(CFTrainer):
         self.sample_lower_bounds = {}
 
         for batch_data in self.dataloader:
-            # [중요] sample_ids를 batch에서 같이 받아야 함
+            # important: sample_ids must be returned together with the batch
             sample_ids, user_id_list, pos_item_list, neg_item_list, is_noisy_list = \
             self.dataset.get_train_batch_dcf(batch_data)
 
@@ -893,9 +893,9 @@ class PRIDECFTrainer(BasicTrainer):
     # =========================
     def _init_moe_gating(self):
         """
-        Nonlinearity 없이:
-          Linear -> Linear -> softmax (forward에서)
-        user/item 각각 gating: input=concat(3 experts emb) => 3 weights
+        No nonlinearity:
+          Linear -> Linear -> softmax (applied in forward)
+        Separate gating for user/item: input=concat(3 experts emb) => 3 weights
         """
         d = self.config["out_dim"]
         hidden = self.config.get("moe_hidden_dim", d)
@@ -1143,7 +1143,7 @@ class PRIDECFTrainer(BasicTrainer):
 
         it = wi[:, 0:1] * i_o + wi[:, 1:2] * i_r + wi[:, 2:3] * i_t
 
-        # ✅ (옵션) gate 테이블 저장 (U×3, I×3)
+        # (optional) save gate tables (U x 3, I x 3)
         if self.config.get("save_gate_tables", True):
             base_dir = f"{self.config['checkpoints']}/{self.config['model']}/{self.config['method']}/{self.config['dataset']}"
             if self.config.get("main_file", "") != "":
@@ -1413,7 +1413,7 @@ class PRIDECFTrainer(BasicTrainer):
                 sum_o += lo; sum_r += lr; sum_t += lt; sum_gate += lg
                 continue
 
-            # ---- Transition: one-time expert selection + switch (optimizer state 유지) ----
+            # ---- Transition: one-time expert selection + switch (keeps optimizer state) ----
             if (epoch >= self.begin_adv) and (not self._moe_initialized):
                 self._select_expert_fair()
                 self._switch_to_expert()
@@ -1466,7 +1466,7 @@ class PRIDECFTrainer(BasicTrainer):
     # Eval
     # =========================
     def _eval_model(self, epoch=0, eval_type="val", model=None):
-        """model=None이면 self.model 사용. 개별 expert 평가 시 model 인자로 전달."""
+        """Uses self.model if model=None; pass a model to evaluate an individual expert."""
         start_t = time.time()
         assert eval_type in ["val", "test"]
         m = model if model is not None else self.model
@@ -1581,7 +1581,7 @@ class PRIDECFTrainer(BasicTrainer):
             w_user = self._softmax_gate_user(u_o, u_r, u_t)                                # (B,3)
 
             # ---- combine scores: S = sum_k w_user[b,k] * w_item[i,k] * S_k[b,i] ----
-            # (B,3) @ (3,I) 형태로 만들기 위해 per-expert weight product를 브로드캐스팅
+            # broadcast the per-expert weight product to form a (B,3) @ (3,I) shape
             w0 = (w_user[:, 0:1] * w_item[:, 0].unsqueeze(0))  # (B,I)
             w1 = (w_user[:, 1:2] * w_item[:, 1].unsqueeze(0))
             w2 = (w_user[:, 2:3] * w_item[:, 2].unsqueeze(0))
@@ -1701,7 +1701,7 @@ class PRIDECFTrainer(BasicTrainer):
         # print
         print(f"[GateStats:{name}] mean={mean}, std={std}, argmax_frac={frac}, entropy_mean={ent:.4f}")
 
-        # wandb/monitor log (가능하면)
+        # wandb/monitor log (if available)
         if hasattr(self, "monitor") and self.monitor is not None:
             self.monitor.log({
                 f"gate_{name}_w0_mean": float(mean[0]),
@@ -1730,10 +1730,10 @@ class PRIDECFTrainer(BasicTrainer):
     @torch.no_grad()
     def _select_expert_fair(self):
         """
-        유저별 평균 BPR loss 기반으로 expert 선택.
-        - 모든 expert를 eval 모드로 실행 (dropping 없음)
-        - 각 유저의 pos 아이템 전체에 대해 loss 계산 후 유저 내 평균
-        - 전체 유저 평균 (argmin) → T-CE의 drop 편향 제거
+        Select the expert based on per-user average BPR loss.
+        - Run every expert in eval mode (no dropping)
+        - Compute the loss over all of each user's positive items, then average within the user
+        - Average across all users and take argmin -> removes T-CE's drop bias
         """
         import random as _random
         U = self.dataset.n_users
@@ -1744,7 +1744,7 @@ class PRIDECFTrainer(BasicTrainer):
         for expert in self.experts:
             expert.eval()
 
-        # 유저별 (pos, neg) 쌍 구성 — 삽입 순서 유지 (Python 3.7+)
+        # build (pos, neg) pairs per user, preserving insertion order (Python 3.7+)
         user_pairs = {}
         for user in range(U):
             pos_items = self.dataset.train_data[user]
@@ -1759,7 +1759,7 @@ class PRIDECFTrainer(BasicTrainer):
                 pairs.append((pos, neg))
             user_pairs[user] = pairs
 
-        # 전체 쌍 flatten (유저 순서 유지)
+        # flatten all pairs, preserving user order
         all_users, all_pos, all_neg = [], [], []
         for user, pairs in user_pairs.items():
             for pos, neg in pairs:
@@ -1770,7 +1770,7 @@ class PRIDECFTrainer(BasicTrainer):
 
         user_avg_losses = []
         for k, expert in enumerate(self.experts):
-            # 배치 단위로 loss 계산
+            # compute loss batch by batch
             losses_flat = []
             for start in range(0, n_total, batch_size):
                 end = min(start + batch_size, n_total)
@@ -1782,7 +1782,7 @@ class PRIDECFTrainer(BasicTrainer):
                 )
                 losses_flat.extend(self._rec_loss(pos_logits, neg_logits).cpu().tolist())
 
-            # 유저별 평균 → 전체 유저 평균
+            # per-user average -> overall average across users
             idx = 0
             per_user_avgs = []
             for user, pairs in user_pairs.items():
@@ -1805,7 +1805,7 @@ class PRIDECFTrainer(BasicTrainer):
         self.selected_expert_name = _names[k]
 
     def _switch_to_expert(self):
-        """선택된 expert를 self.model / self.opt로 연결 (optimizer state 유지)."""
+        """Wire the selected expert into self.model / self.opt (keeps optimizer state)."""
         k = self.selected_expert_idx
         self.model = self.experts[k]
         self.opt = self.expert_opts[k]
@@ -1817,7 +1817,7 @@ class PRIDECFTrainer(BasicTrainer):
 
     @torch.no_grad()
     def _log_gate_line(self, epoch):
-        """warm-up 에폭 끝에 user gate 평균 가중치를 출력한다."""
+        """Print the mean user-gate weights at the end of a warm-up epoch."""
         self.user_gate_fc1.eval(); self.user_gate_fc2.eval()
 
         u_o = self._get_all_user_emb(self.expert_o).to(self.device)
@@ -1835,9 +1835,9 @@ class PRIDECFTrainer(BasicTrainer):
 
     def _save_pride_signals(self, epoch, s_all, c_all, w_all, noisy_all, comps_all=None):
         """
-        에폭 단위로 s_tilde / c_tilde / w / is_noisy 를 디스크에 저장.
-        lambda_power mode일 때는 comps_all(s_pow, c_pow, w_raw)도 함께 저장.
-        저장 경로: analyze/requiem_signals/{dataset}/noise{noise}/seed{seed}/epoch{epoch:03d}.pt
+        Save s_tilde / c_tilde / w / is_noisy to disk for each epoch.
+        In lambda_power mode, also save comps_all (s_pow, c_pow, w_raw).
+        Save path: analyze/requiem_signals/{dataset}/noise{noise}/seed{seed}/epoch{epoch:03d}.pt
         """
         save_dir = os.path.join(
             "analyze", "requiem_signals",

@@ -1,13 +1,13 @@
 # PRIDE
 
-[TODO: 논문 제목]
+**Preference-structure and Representation-stability based Interaction Denoising**
 
 This repository is the official implementation of **PRIDE**, a denoising method for
 implicit-feedback recommender systems.
 
 > **Note:** This codebase was originally built on top of the [PLD (WWW 2025)](https://arxiv.org/pdf/2502.00348)
 > implementation and has since been extended with PRIDE and several baselines
-> (BOD, DCF, T-CE, R-CE, REQUIEM). [TODO: 원 저자 attribution / 라이선스 문구 확인 후 정리]
+> (BOD, DCF, T-CE, R-CE). [TODO: 원 저자 attribution / 라이선스 문구 확인 후 정리]
 
 ## Authors
 [TODO: 저자 목록]
@@ -53,7 +53,7 @@ Key hyperparameters (see `meta_config.py` for the full list):
 | --- | --- |
 | `--model` | backbone: `MF`, `LightGCN`, `NeuMF` |
 | `--dataset` | dataset name under `data/` |
-| `--method` | denoising method: `PRIDE`, `Origin`, `PLD`, `REQUIEM`, `BOD`, `DCF`, `TCE`, `RCE`, ... |
+| `--method` | denoising method: `PRIDE`, `Origin`, `PLD`, `BOD`, `DCF`, `TCE`, `RCE`, ... |
 | `--noise` | synthetic noise ratio injected into training interactions |
 | `--begin_adv`, `--ema`, `--num_codebook`, `--energy_r`, `--energy_lambda` | PRIDE-specific hyperparameters |
 
